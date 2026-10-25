@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -33,7 +33,13 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Dapper, Version=2.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Dapper.2.1.35\lib\net461\Dapper.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Security" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -46,18 +52,29 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Datos\Almacen.cs" />
+    <Compile Include="AvisoException.cs" />
+    <Compile Include="Datos\Bitacora.cs" />
+    <Compile Include="Datos\Conexion.cs" />
+    <Compile Include="Datos\Configuracion.cs" />
     <Compile Include="Datos\Csv.cs" />
-    <Compile Include="Modelos\LineaOrden.cs" />
+    <Compile Include="Datos\Instalador.cs" />
+    <Compile Include="Datos\MenuRepo.cs" />
+    <Compile Include="Datos\MesaRepo.cs" />
+    <Compile Include="Datos\OrdenRepo.cs" />
+    <Compile Include="Datos\VentaRepo.cs" />
+    <Compile Include="Modelos\Menu.cs" />
+    <Compile Include="Modelos\Mesa.cs" />
     <Compile Include="Modelos\Orden.cs" />
-    <Compile Include="Modelos\Platillo.cs" />
-    <Compile Include="Modelos\Venta.cs" />
     <Compile Include="Pantallas\Estilo.cs" />
     <Compile Include="Pantallas\FrmCobro.cs" />
+    <Compile Include="Pantallas\FrmConexion.cs" />
     <Compile Include="Pantallas\FrmMenu.cs" />
+    <Compile Include="Pantallas\FrmMotivo.cs" />
     <Compile Include="Pantallas\FrmOrden.cs" />
     <Compile Include="Pantallas\FrmPrincipal.cs" />
     <Compile Include="Pantallas\FrmVentas.cs" />
+    <Compile Include="Pantallas\Ui.cs" />
+    <Compile Include="Servicios\Log.cs" />
     <Compile Include="Servicios\Ticket.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -81,6 +98,19 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
+    <Content Include="..\BaseDatos\01_crear_base.sql">
+      <Link>BaseDatos\01_crear_base.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\BaseDatos\02_esquema.sql">
+      <Link>BaseDatos\02_esquema.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\BaseDatos\03_datos_iniciales.sql">
+      <Link>BaseDatos\03_datos_iniciales.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
