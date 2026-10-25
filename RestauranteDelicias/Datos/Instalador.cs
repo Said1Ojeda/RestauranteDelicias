@@ -16,7 +16,8 @@ namespace RestauranteDelicias.Datos
         // cada fase que cambia la base agrega aca su script, se corren en orden y una sola vez
         static readonly Tuple<int, string>[] Migraciones =
         {
-            Tuple.Create(2, "04_fase2_usuarios_caja.sql")
+            Tuple.Create(2, "04_fase2_usuarios_caja.sql"),
+            Tuple.Create(3, "05_cocina_respaldo.sql")
         };
 
         public static int VersionActual

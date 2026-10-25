@@ -9,6 +9,7 @@ namespace RestauranteDelicias.Pantallas
         public const string USUARIOS = "usuarios";
         public const string BITACORA = "bitacora";
         public const string DATOS = "datos";
+        public const string RESPALDO = "respaldo";
         public const string CONEXION = "conexion";
 
         public string Eleccion { get; private set; }
@@ -17,7 +18,7 @@ namespace RestauranteDelicias.Pantallas
 
         public FrmAjustes()
         {
-            Estilo.Formulario(this, "Ajustes", 660, 430);
+            Estilo.Formulario(this, "Ajustes", 660, 570);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -28,7 +29,8 @@ namespace RestauranteDelicias.Pantallas
 
             Opcion(USUARIOS, "Usuarios", "Meseros, cajeros y sus PIN", Icono.Usuarios, Estilo.Azul);
             Opcion(BITACORA, "Bitácora", "Quién anuló, descontó o cambió precios", Icono.Bitacora, Estilo.Naranja);
-            Opcion(DATOS, "Datos del restaurante", "Nombre, NIT, propina e IVA del ticket", Icono.Restaurante, Estilo.Vino);
+            Opcion(DATOS, "Datos del restaurante", "Nombre, NIT, propina, IVA y tiempos", Icono.Restaurante, Estilo.Vino);
+            Opcion(RESPALDO, "Respaldo de la base", FrmRespaldo.Resumen(), Icono.Respaldo, Estilo.Libre);
             Opcion(CONEXION, "Conexión a la base", "Solo si el servidor cambió", Icono.Conexion, Estilo.Gris);
 
             var botones = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 58, Padding = new Padding(12), FlowDirection = FlowDirection.RightToLeft, BackColor = Estilo.Crema };

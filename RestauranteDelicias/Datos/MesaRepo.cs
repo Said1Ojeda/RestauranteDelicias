@@ -17,14 +17,16 @@ namespace RestauranteDelicias.Datos
                              o.Id AS OrdenId, o.Apertura, o.Personas,
                              ISNULL(t.Subtotal, 0) AS Subtotal,
                              ISNULL(t.Articulos, 0) AS Articulos,
-                             ISNULL(t.Pendientes, 0) AS Pendientes
+                             ISNULL(t.Pendientes, 0) AS Pendientes,
+                             ISNULL(t.Listos, 0) AS Listos
                       FROM dbo.Mesa m
                       JOIN dbo.Area a ON a.Id = m.AreaId
                       LEFT JOIN dbo.Orden o ON o.MesaId = m.Id AND o.Estado = N'Abierta'
                       OUTER APPLY (
                           SELECT SUM(d.Cantidad * d.PrecioUnitario) AS Subtotal,
                                  SUM(d.Cantidad) AS Articulos,
-                                 SUM(CASE WHEN d.Estado = N'Nuevo' THEN 1 ELSE 0 END) AS Pendientes
+                                 SUM(CASE WHEN d.Estado = N'Nuevo' THEN 1 ELSE 0 END) AS Pendientes,
+                                 SUM(CASE WHEN d.Estado = N'Listo' THEN 1 ELSE 0 END) AS Listos
                           FROM dbo.OrdenDetalle d
                           WHERE d.OrdenId = o.Id AND d.Anulado = 0
                       ) t

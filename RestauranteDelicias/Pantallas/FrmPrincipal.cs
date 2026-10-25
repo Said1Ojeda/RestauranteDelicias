@@ -26,6 +26,9 @@ namespace RestauranteDelicias.Pantallas
         readonly Label lblResumen = new Label();
         readonly Label lblFecha = new Label();
         readonly Timer timer = new Timer();
+        readonly Timer vigilante = new Timer();
+        readonly Boton btnRespaldo = Estilo.Boton("Respaldo pendiente", Estilo.Naranja, Icono.Aviso);
+        readonly Panel zonaAviso = new Panel();
         List<MesaEstado> mesas = new List<MesaEstado>();
         bool refrescando;
         bool hayDialogo;
@@ -88,9 +91,21 @@ namespace RestauranteDelicias.Pantallas
             lblResumen.Font = Estilo.Negrita;
             lblResumen.ForeColor = Estilo.Suave;
             lblResumen.BackColor = Color.White;
+            // al admin se le recuerda si hace mas de un dia que no se respalda la base
+            btnRespaldo.Contorno = true;
+            btnRespaldo.AutoSize = false;
+            btnRespaldo.Dock = DockStyle.Fill;
+            zonaAviso.Dock = DockStyle.Right;
+            zonaAviso.Width = 220;
+            zonaAviso.Padding = new Padding(16, 14, 0, 16);
+            zonaAviso.BackColor = Color.White;
+            zonaAviso.Visible = false;
+            zonaAviso.Controls.Add(btnRespaldo);
+            btnRespaldo.Click += async (s, e) => { await Dialogo(new FrmRespaldo()); Rearmar(); };
             cabeza.Controls.Add(lblFecha);
             cabeza.Controls.Add(lblTitulo);
             cabeza.Controls.Add(lblResumen);
+            cabeza.Controls.Add(zonaAviso);
 
             panelMesas.Dock = DockStyle.Fill;
             panelMesas.Padding = new Padding(18, 10, 18, 18);
@@ -107,7 +122,12 @@ namespace RestauranteDelicias.Pantallas
             timer.Interval = REFRESCO_MS;
             timer.Tick += async (s, e) => await Refrescar();
             Shown += async (s, e) => { await Refrescar(); timer.Start(); };
-            FormClosed += (s, e) => timer.Stop();
+            FormClosed += (s, e) => { timer.Stop(); vigilante.Stop(); };
+
+            // si nadie toca la compu un rato se regresa al login, asi nadie trabaja con el usuario de otro
+            vigilante.Interval = 15000;
+            vigilante.Tick += (s, e) => RevisarInactividad();
+            vigilante.Start();
             KeyPreview = true;
             KeyDown += async (s, e) => { if (e.KeyCode == Keys.F5) await Refrescar(); };
         }
@@ -171,8 +191,17 @@ namespace RestauranteDelicias.Pantallas
                     continue;
                 }
                 var minutos = (int)(DateTime.Now - m.Apertura.Value).TotalMinutes;
-                t.Acento = m.Pendientes > 0 ? Estilo.Naranja : Estilo.Ocupada;
-                t.Etiqueta = m.Pendientes > 0 ? "Sin enviar" : "Ocupada";
+                // lo que cocina ya tiene listo es lo mas urgente, despues lo que no se ha mandado
+                if (m.Listos > 0)
+                {
+                    t.Acento = Estilo.Azul;
+                    t.Etiqueta = m.Listos == 1 ? "1 listo" : m.Listos + " listos";
+                }
+                else
+                {
+                    t.Acento = m.Pendientes > 0 ? Estilo.Naranja : Estilo.Ocupada;
+                    t.Etiqueta = m.Pendientes > 0 ? "Sin enviar" : "Ocupada";
+                }
                 t.Detalle = m.Personas + " pers · " + Tiempo(minutos);
                 t.Pie = Ticket.Q(m.Subtotal);
             }
@@ -267,6 +296,7 @@ namespace RestauranteDelicias.Pantallas
             if (Sesion.EsAdmin)
             {
                 Opcion("Menú", Icono.Menu, () => Dialogo(new FrmMenu()));
+                Opcion("Cocina", Icono.Cocina, () => Dialogo(new FrmCocina(true)));
                 // lo de administrar va junto en una sola pantalla, asi la barra queda para el trabajo del dia
                 Opcion("Ajustes", Icono.Ajustes, AbrirAjustes);
             }
@@ -276,6 +306,7 @@ namespace RestauranteDelicias.Pantallas
             Opcion("Cambiar usuario", Icono.Cambiar, () => { CambiarUsuario(); return Task.FromResult(0); });
             menuLateral.ResumeLayout();
 
+            zonaAviso.Visible = Sesion.EsAdmin && FrmRespaldo.Pendiente;
             Text = Configuracion.Nombre;
             lblMarca.Text = Configuracion.Nombre;
             lblUsuario.Text = Sesion.Nombre + "\n" + (Sesion.Usuario != null ? Sesion.Usuario.Rol : "") +
@@ -328,27 +359,36 @@ namespace RestauranteDelicias.Pantallas
                 case FrmAjustes.USUARIOS: await Dialogo(new FrmUsuarios()); break;
                 case FrmAjustes.BITACORA: await Dialogo(new FrmBitacora()); break;
                 case FrmAjustes.DATOS: await Dialogo(new FrmConfiguracion()); Rearmar(); break;
+                case FrmAjustes.RESPALDO: await Dialogo(new FrmRespaldo()); Rearmar(); break;
                 case FrmAjustes.CONEXION: CambiarConexion(); break;
             }
         }
 
-        // la compu queda en el login y el siguiente entra con su usuario, sin cerrar el programa
-        async void CambiarUsuario()
+        // la ventana se cierra y el programa vuelve al login para que entre el siguiente
+        void CambiarUsuario()
+        {
+            CambiarUsuario("Salida");
+        }
+
+        void CambiarUsuario(string motivo)
         {
             timer.Stop();
-            try { Bitacora.Registrar("Salida", Sesion.Nombre); }
+            vigilante.Stop();
+            try { Bitacora.Registrar(motivo, Sesion.Nombre); }
             catch (Exception ex) { Log.Error("Registrar salida", ex); }
             Sesion.Cerrar();
-            Hide();
-            if (!FrmLogin.IniciarSesion(null))
-            {
-                Close();
-                return;
-            }
-            Rearmar();
-            Show();
-            await Refrescar();
-            timer.Start();
+            Sesion.OtroUsuario = true;
+            Close();
+        }
+
+        void RevisarInactividad()
+        {
+            var minutos = (int)Configuracion.Numero("Sesion.MinutosInactivo", 5);
+            // si hay algo abierto encima, una orden o un mensaje, se espera a que lo cierren
+            if (minutos <= 0 || hayDialogo || Application.OpenForms.Count > 1 || Form.ActiveForm != this) return;
+            if (Actividad.SinUso.TotalMinutes < minutos) return;
+            Log.Info("Salida por inactividad de " + Sesion.Nombre);
+            CambiarUsuario("Salida por inactividad");
         }
 
         // si se cambia mal esta compu deja de ver las mesas, por eso se pregunta antes

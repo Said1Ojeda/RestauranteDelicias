@@ -36,6 +36,7 @@ namespace RestauranteDelicias.Pantallas
         readonly Label lblTotal = new Label();
         readonly Boton btnCobrar;
         readonly Boton btnEnviar;
+        readonly Boton btnEntregar;
         readonly Timer timer = new Timer();
 
         public FrmOrden(int mesaId, int mesaNumero)
@@ -149,6 +150,10 @@ namespace RestauranteDelicias.Pantallas
             btnMenos.Click += (s, e) => Menos();
             btnQuitar.Click += (s, e) => Quitar();
             btnEnviar.Click += (s, e) => Enviar(true);
+            // lo que cocina marco como listo, el mesero lo lleva y lo marca entregado
+            btnEntregar = Estilo.Boton("Entregar listos", Estilo.Azul, Icono.Listo);
+            btnEntregar.Visible = false;
+            btnEntregar.Click += (s, e) => Entregar();
 
             numPersonas.Minimum = 1;
             numPersonas.Maximum = 50;
@@ -157,7 +162,7 @@ namespace RestauranteDelicias.Pantallas
             numPersonas.ValueChanged += (s, e) => GuardarDatos();
             acciones.Controls.AddRange(new Control[]
             {
-                btnMas, btnMenos, btnQuitar, btnEnviar, btnDescuento,
+                btnMas, btnMenos, btnQuitar, btnEnviar, btnEntregar, btnDescuento,
                 new Label { Text = "Personas", AutoSize = true, ForeColor = Estilo.Suave, Margin = new Padding(16, 12, 2, 0) }, numPersonas
             });
 
@@ -365,6 +370,9 @@ namespace RestauranteDelicias.Pantallas
             Text = "Mesa " + mesaNumero + (orden != null && orden.Mesero != null ? " · atiende " + orden.Mesero : "");
             btnCobrar.Enabled = orden != null && !orden.Vacia;
             btnEnviar.Enabled = orden != null && orden.SinEnviar > 0;
+            var listos = orden == null ? 0 : orden.Activas.Count(l => l.Estado == "Listo");
+            btnEntregar.Visible = listos > 0;
+            btnEntregar.Text = "Entregar listos · " + listos;
             btnEnviar.Text = orden != null && orden.SinEnviar > 0 ? "Enviar a cocina · " + orden.SinEnviar + "   F2" : "Enviar a cocina   F2";
             cargando = false;
         }
@@ -469,6 +477,14 @@ namespace RestauranteDelicias.Pantallas
             int enviados = 0;
             if (Ui.Seguro(this, () => enviados = OrdenRepo.EnviarACocina(orden.Id)) && avisar && enviados > 0)
                 MessageBox.Show(this, "Se mandaron " + enviados + " platillo(s) a cocina.", "Cocina", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Recargar();
+        }
+
+        void Entregar()
+        {
+            if (orden == null) return;
+            var id = orden.Id;
+            Ui.Seguro(this, () => CocinaRepo.Entregar(id));
             Recargar();
         }
 

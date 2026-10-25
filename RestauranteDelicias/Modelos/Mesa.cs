@@ -25,6 +25,7 @@ namespace RestauranteDelicias.Modelos
         public decimal Subtotal { get; set; }
         public int Articulos { get; set; }
         public int Pendientes { get; set; }
+        public int Listos { get; set; }
 
         public bool Ocupada
         {

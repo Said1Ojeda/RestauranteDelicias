@@ -77,9 +77,17 @@ namespace RestauranteDelicias
                 return;
             }
 
-            if (!FrmLogin.IniciarSesion(null)) return;
+            Actividad.Empezar();
 
-            Application.Run(new FrmPrincipal());
+            // cocina entra a su pantalla y los demas a las mesas, al cambiar de usuario se vuelve a pedir el login
+            while (true)
+            {
+                Sesion.OtroUsuario = false;
+                if (!FrmLogin.IniciarSesion(null)) return;
+                Actividad.Tocar();
+                Application.Run(Sesion.EsCocina ? (Form)new FrmCocina(false) : new FrmPrincipal());
+                if (!Sesion.OtroUsuario) return;
+            }
         }
     }
 }

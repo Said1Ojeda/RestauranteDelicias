@@ -2,9 +2,15 @@
 
 Sistema para manejar un restaurante: mesas, órdenes, cocina y cobro, con SQL Server. Hecho en C# con Windows Forms.
 
-Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la base al momento, así cada compu ve lo mismo y nada se pierde si se va la luz o se cierra el programa.
+Tiene una pantalla para cada quien: las mesas para meseros y cajeros, y una pantalla oscura para la cocina y la barra. Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la base al momento, así cada compu ve lo mismo y nada se pierde si se va la luz o se cierra el programa.
 
 ## Qué hace
+
+**Diseño**
+- Barra lateral con íconos, mesas y platillos en tarjetas, y tablas limpias sin cuadrícula.
+- Los íconos salen de la letra de íconos que ya trae Windows 10 y 11, así no se carga ninguna imagen.
+- Se ve nítido con el escalado de Windows al 125 % o 150 %, no borroso.
+- Los botones y las tarjetas son grandes, se pueden usar en pantalla táctil.
 
 **Usuarios y permisos**
 - Se entra con usuario y contraseña, o con un **PIN** en un teclado numérico grande, pensado para la compu que comparten los meseros.
@@ -15,10 +21,11 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 | Mesero | Tomar órdenes y mandarlas a cocina |
 | Cajero | Lo del mesero, más cobrar, abrir y cerrar caja y ver las ventas |
 | Admin | Todo, más el menú y lo que está en **Ajustes**: usuarios, bitácora, datos del restaurante y conexión |
-| Cocina | Su pantalla llega en la fase 3 |
+| Cocina | Solo la pantalla de cocina |
 
 - Contraseñas y PIN guardados con hash PBKDF2 y sal, nunca en texto. Después de 5 intentos fallidos hay que esperar un minuto.
 - "Cambiar usuario" deja la compu en el login sin cerrar el programa.
+- Si nadie toca la compu en 5 minutos, regresa sola al login. Así nadie cobra ni anula con el usuario de otro. Los minutos se cambian en Ajustes, y con 0 no se cierra nunca.
 - La conexión a la base se configura **una sola vez por compu**. Después cada quien solo entra con su PIN o su clave, sin ver nada del servidor.
 
 **Caja**
@@ -31,15 +38,24 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 - Si el que está usando la compu ya es admin, no le pregunta.
 - La bitácora guarda quién lo pidió, quién lo autorizó y desde qué compu.
 
+**Cocina**
+- Pantalla oscura con un pedido por tarjeta. Cada tarjeta trae la mesa, el mesero, lo que hay que preparar con sus notas y cuánto tiempo lleva.
+- Se filtra por **cocina**, **barra** o todo, según la categoría del platillo.
+- La franja de arriba va de verde a naranja, y a rojo cuando pasa de 15 minutos.
+- **Empezar** marca que ya se está preparando y **Listo** lo quita de la pantalla. **Deshacer** lo regresa por si se tocó mal.
+- Lo que se anula después de mandarlo sale tachado en rojo, para que no se prepare.
+- Suena un aviso cuando llega un pedido nuevo.
+- En las mesas aparece "2 listos" para que el mesero sepa que ya puede llevarlo. En la orden lo marca con **Entregar listos**.
+
 **Mesas**
 - Mesas agrupadas por área: salón, terraza o las que se configuren.
-- **Verde** si está libre, **roja** si está ocupada y **naranja** si tiene platillos que todavía no se mandaron a cocina.
+- **Verde** si está libre, **roja** si está ocupada, **naranja** si tiene platillos que todavía no se mandaron a cocina y **azul** si cocina ya tiene algo listo.
 - Cada mesa ocupada muestra lo consumido, las personas y cuánto tiempo lleva.
 - Se refresca sola cada 4 segundos, así se ve lo que hacen las otras cajas.
 
 **Orden**
-- Menú por categorías con buscador. Lo que se acabó en el día sale como "agotado" y no se puede pedir.
-- Se agrega con cantidad y nota ("sin cebolla", "bien cocido").
+- Menú en tarjetas con el color de su categoría, filtros por categoría y buscador. Lo que se acabó en el día sale como "agotado" y no se puede pedir.
+- Se agrega con un toque, con cantidad y nota ("sin cebolla", "bien cocido"). En el buscador, Enter agrega el primero que sale.
 - **Enviar a cocina**: lo nuevo se marca como enviado. Si se cierra la mesa sin enviar, el sistema pregunta.
 - Lo que no se ha enviado se cambia libremente. Lo que ya está en cocina se **anula con motivo**, y queda en la bitácora.
 - Personas por mesa, propina opcional (10 % por defecto) y el IVA incluido desglosado.
@@ -51,7 +67,7 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 - Efectivo, tarjeta o transferencia.
 - En efectivo calcula el vuelto, con botones rápidos de Q50, Q100, Q200 y exacto.
 - En tarjeta o transferencia se anota la referencia.
-- Número de ticket correlativo y ticket listo para impresora térmica de 80 mm.
+- Número de ticket correlativo. El ticket se ve antes de imprimir tal como va a salir, listo para impresora térmica de 80 mm.
 - Si otra caja ya cobró la mesa, o alguien le agregó algo mientras se cobraba, no deja cobrar dos veces y avisa.
 
 **Menú**
@@ -62,6 +78,25 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 **Ventas del día**
 - Cobros de cualquier fecha, con el mesero, quién cobró, el total por forma de pago, el consumo, las propinas y los platillos anulados.
 - Reimprimir un ticket y exportar a CSV para Excel.
+
+**Atajos de teclado**
+
+| Tecla | En la orden |
+|---|---|
+| F2 | Enviar a cocina |
+| F3 o Ctrl+F | Buscar platillo |
+| F4 | Descuento |
+| F9 | Cobrar |
+| + y - | Sumar o quitar uno del platillo marcado |
+| Supr | Quitar el platillo marcado |
+| Esc | Limpiar la búsqueda o volver a las mesas |
+
+En las mesas, F5 refresca.
+
+**Respaldo**
+- En **Ajustes → Respaldo de la base** se hace un respaldo completo con un clic. SQL Server Express no los hace solo.
+- Si pasa más de un día sin respaldo, al admin le sale el aviso arriba en las mesas.
+- El archivo `.bak` queda en la compu del servidor. Hay que copiarlo de vez en cuando a una USB o a la nube.
 
 ## Instalación
 
@@ -103,9 +138,9 @@ La conexión de cada compu se guarda cifrada en su `AppData`, no en el código. 
 BaseDatos/                    scripts de SQL Server
 RestauranteDelicias/
 ├── Datos/                    conexión y consultas con Dapper
-├── Modelos/                  categorías, platillos, mesas, órdenes, pagos
-├── Servicios/                ticket y registro de errores
-└── Pantallas/                los formularios
+├── Modelos/                  categorías, platillos, mesas, órdenes, pagos, comandas
+├── Servicios/                ticket, sesión y registro de errores
+└── Pantallas/                las pantallas, los botones y tarjetas del diseño
 ```
 
 ### Base de datos

@@ -29,10 +29,13 @@ El sistema se va armando por fases. Cada una se puede usar sola, sin esperar a l
 
 ## Fase 3: operación del restaurante
 
-- [ ] **Pantalla de cocina**: una por estación (cocina y barra), con los pedidos en tarjetas, el tiempo que llevan y los botones "Preparando" y "Listo"
-- [ ] La tarjeta cambia de color si un pedido pasa de 15 minutos
+- [x] **Pantalla de cocina**: una por estación (cocina y barra), con los pedidos en tarjetas, el tiempo que llevan y los botones "Empezar" y "Listo"
+- [x] La tarjeta cambia de color si un pedido pasa de 15 minutos, y suena cuando llega uno nuevo
+- [x] El mesero ve en la mesa qué ya está listo para llevar
+- [x] Respaldo de la base desde el programa, con aviso si pasa un día sin hacerlo
+- [x] Regreso al login si nadie usa la compu un rato
+- [x] Atajos de teclado para tomar la orden y cobrar
 - [ ] Opcional: ticket de comanda impreso en cocina, para quien prefiera papel
-- [ ] El mesero ve en la mesa qué ya está listo para llevar
 - [ ] Mover una orden de mesa y juntar mesas
 - [ ] **Dividir la cuenta** por platillos o en partes iguales, cada parte con su pago
 - [ ] Varios pagos en una cuenta (mitad efectivo, mitad tarjeta)
@@ -43,11 +46,12 @@ El sistema se va armando por fases. Cada una se puede usar sola, sin esperar a l
 
 ## Fase 4: dejarlo lindísimo
 
-- [ ] Diseño propio: barra lateral, tarjetas, iconos y paleta del restaurante
+- [x] Diseño propio: barra lateral, tarjetas, iconos y paleta del restaurante
+- [x] Modo oscuro para la cocina
+- [x] Que se vea bien con el escalado de Windows al 125 % o 150 %
+- [x] Ticket con vista previa como va a salir en el papel
 - [ ] **Plano del salón** con la forma y posición real de cada mesa
-- [ ] Menú con foto de cada platillo y botones grandes para pantalla táctil
-- [ ] Modo oscuro para la cocina
-- [ ] Que se vea bien con el escalado de Windows al 125 % o 150 %
+- [ ] Menú con foto de cada platillo
 
 ## Fase 5: reportes y control
 

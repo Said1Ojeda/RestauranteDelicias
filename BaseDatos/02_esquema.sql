@@ -25,7 +25,7 @@ CREATE TABLE dbo.Platillo (
     Nombre          NVARCHAR(100)  NOT NULL,
     Descripcion     NVARCHAR(300)  NULL,
     Precio          DECIMAL(10,2)  NOT NULL,
-    -- disponible es para el dia (se acabo), activo es si sigue en el menu
+    -- disponible es si hay hoy, activo es si sigue en el menu
     Disponible      BIT            NOT NULL CONSTRAINT DF_Platillo_Disponible DEFAULT (1),
     Activo          BIT            NOT NULL CONSTRAINT DF_Platillo_Activo DEFAULT (1),
     Modificado      DATETIME2(0)   NOT NULL CONSTRAINT DF_Platillo_Modificado DEFAULT (SYSDATETIME()),
