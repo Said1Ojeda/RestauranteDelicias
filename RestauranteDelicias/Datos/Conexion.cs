@@ -92,18 +92,5 @@ namespace RestauranteDelicias.Datos
         {
             ConReintento<bool>(() => { accion(); return true; });
         }
-
-        public static string Describir(string cs)
-        {
-            try
-            {
-                var b = new SqlConnectionStringBuilder(cs);
-                return b.DataSource + " / " + b.InitialCatalog;
-            }
-            catch
-            {
-                return "";
-            }
-        }
     }
 }
