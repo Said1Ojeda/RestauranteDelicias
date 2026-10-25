@@ -21,7 +21,7 @@ namespace RestauranteDelicias.Datos
         {
             using (var c = Conexion.Abrir())
                 return c.Query<Platillo>(
-                    @"SELECT p.Id, p.CategoriaId, cat.Nombre AS CategoriaNombre, p.Nombre, p.Descripcion,
+                    @"SELECT p.Id, p.CategoriaId, cat.Nombre AS CategoriaNombre, cat.Color AS CategoriaColor, p.Nombre, p.Descripcion,
                              p.Precio, p.Disponible, p.Activo
                       FROM dbo.Platillo p
                       JOIN dbo.Categoria cat ON cat.Id = p.CategoriaId
