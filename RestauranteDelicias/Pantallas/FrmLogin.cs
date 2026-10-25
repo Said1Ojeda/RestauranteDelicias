@@ -130,7 +130,8 @@ namespace RestauranteDelicias.Pantallas
             bPin.BackColor = pin ? Estilo.Vino : Estilo.Gris;
             bClave.BackColor = pin ? Estilo.Gris : Estilo.Vino;
             lblError.Text = "";
-            BeginInvoke(new Action(() => (pin ? (Control)txtPin : txtUsuario).Focus()));
+            // ActiveControl funciona aunque la ventana todavia no se haya creado, BeginInvoke no
+            ActiveControl = pin ? (Control)txtPin : txtUsuario;
         }
 
         void Tecla(string t)
