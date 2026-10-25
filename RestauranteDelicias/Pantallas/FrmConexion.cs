@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 using System.Drawing;
 using System.Windows.Forms;
@@ -130,6 +130,9 @@ namespace RestauranteDelicias.Pantallas
                 case Instalador.Estado.SinBase:
                     Mostrar("Se conectó al servidor pero la base no existe todavía. Dale a \"Crear base de datos\".", Estilo.Naranja);
                     break;
+                case Instalador.Estado.Desactualizada:
+                    Mostrar("La base es de una versión anterior del sistema. Dale a \"Actualizar base de datos\", no se borra nada.", Estilo.Naranja);
+                    break;
                 case Instalador.Estado.SinTablas:
                     Mostrar("La base existe pero está vacía. Dale a \"Crear base de datos\" para crear las tablas.", Estilo.Naranja);
                     break;
@@ -137,14 +140,18 @@ namespace RestauranteDelicias.Pantallas
                     Mostrar("No se pudo conectar. " + error, Estilo.Ocupada);
                     break;
             }
-            btnInstalar.Enabled = estado == Instalador.Estado.SinBase || estado == Instalador.Estado.SinTablas;
+            btnInstalar.Enabled = estado == Instalador.Estado.SinBase || estado == Instalador.Estado.SinTablas || estado == Instalador.Estado.Desactualizada;
+            btnInstalar.Text = estado == Instalador.Estado.Desactualizada ? "Actualizar base de datos" : "Crear base de datos";
             btnEntrar.Enabled = estado == Instalador.Estado.Lista;
             return estado;
         }
 
         void InstalarBase()
         {
-            if (!Ui.Confirmar(this, "Se va a crear la base " + txtBase.Text.Trim() + " con las tablas y un menú de ejemplo.\n\n¿Seguir?", "Crear base de datos"))
+            var texto = btnInstalar.Text.StartsWith("Actualizar")
+                ? "Se van a agregar a la base las tablas y columnas nuevas. Los datos que ya tiene se quedan igual.\n\n¿Seguir?"
+                : "Se va a crear la base " + txtBase.Text.Trim() + " con las tablas y un menú de ejemplo.\n\n¿Seguir?";
+            if (!Ui.Confirmar(this, texto, btnInstalar.Text))
                 return;
             if (Ui.Seguro(this, () => Instalador.Instalar(Armar())))
                 Probar();

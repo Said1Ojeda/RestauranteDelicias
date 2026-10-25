@@ -46,6 +46,8 @@ namespace RestauranteDelicias.Pantallas
             grid.Columns.Add("propina", "Propina");
             grid.Columns.Add("total", "Total");
             grid.Columns.Add("pago", "Pago");
+            grid.Columns.Add("mesero", "Mesero");
+            grid.Columns.Add("cajero", "Cobró");
             foreach (var c in new[] { "subtotal", "propina", "total" })
                 grid.Columns[c].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             grid.CellDoubleClick += (s, e) => Reimprimir();
@@ -80,7 +82,7 @@ namespace RestauranteDelicias.Pantallas
             {
                 int i = grid.Rows.Add(v.NumeroTicket.ToString("00000"), v.Cierre.ToString("HH:mm"),
                     v.MesaNumero.HasValue ? v.MesaNumero.ToString() : v.Tipo, v.Articulos,
-                    Ticket.Q(v.Subtotal), Ticket.Q(v.Propina), Ticket.Q(v.Total), v.Formas);
+                    Ticket.Q(v.Subtotal), Ticket.Q(v.Propina), Ticket.Q(v.Total), v.Formas, v.Mesero ?? "-", v.Cajero ?? "-");
                 grid.Rows[i].Tag = v;
             }
 
@@ -121,11 +123,12 @@ namespace RestauranteDelicias.Pantallas
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
                 var inv = CultureInfo.InvariantCulture;
-                var lineas = new List<string> { "ticket,fecha,mesa,articulos,consumo,propina,total,pago" };
+                var lineas = new List<string> { "ticket,fecha,mesa,articulos,consumo,propina,total,pago,mesero,cobro" };
                 lineas.AddRange(ventas.Select(v => Csv.Linea(
                     v.NumeroTicket, v.Cierre.ToString("yyyy-MM-dd HH:mm", inv),
                     v.MesaNumero.HasValue ? v.MesaNumero.ToString() : v.Tipo, v.Articulos,
-                    v.Subtotal.ToString("0.00", inv), v.Propina.ToString("0.00", inv), v.Total.ToString("0.00", inv), v.Formas)));
+                    v.Subtotal.ToString("0.00", inv), v.Propina.ToString("0.00", inv), v.Total.ToString("0.00", inv), v.Formas,
+                    v.Mesero, v.Cajero)));
 
                 // con bom para que excel agarre bien las tildes
                 if (Ui.Seguro(this, () => File.WriteAllLines(dlg.FileName, lineas, new UTF8Encoding(true))))
