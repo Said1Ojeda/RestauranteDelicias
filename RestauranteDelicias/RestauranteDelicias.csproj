@@ -66,25 +66,63 @@
     <Compile Include="Modelos\Mesa.cs" />
     <Compile Include="Modelos\Orden.cs" />
     <Compile Include="Pantallas\Estilo.cs" />
-    <Compile Include="Pantallas\FrmCobro.cs" />
-    <Compile Include="Pantallas\FrmConexion.cs" />
-    <Compile Include="Pantallas\FrmMenu.cs" />
-    <Compile Include="Pantallas\FrmMotivo.cs" />
-    <Compile Include="Pantallas\FrmOrden.cs" />
-    <Compile Include="Pantallas\FrmPrincipal.cs" />
-    <Compile Include="Pantallas\FrmVentas.cs" />
+    <Compile Include="Pantallas\Controles.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmAjustes.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmPregunta.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmTicket.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmCobro.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmConexion.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmMenu.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmMotivo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmOrden.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmPrincipal.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmVentas.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Pantallas\Ui.cs" />
     <Compile Include="Servicios\Log.cs" />
     <Compile Include="Servicios\Ticket.cs" />
     <Compile Include="Datos\TurnoRepo.cs" />
     <Compile Include="Datos\UsuarioRepo.cs" />
     <Compile Include="Modelos\Usuario.cs" />
-    <Compile Include="Pantallas\FrmBitacora.cs" />
-    <Compile Include="Pantallas\FrmCaja.cs" />
-    <Compile Include="Pantallas\FrmConfiguracion.cs" />
-    <Compile Include="Pantallas\FrmLogin.cs" />
-    <Compile Include="Pantallas\FrmUsuario.cs" />
-    <Compile Include="Pantallas\FrmUsuarios.cs" />
+    <Compile Include="Pantallas\FrmBitacora.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmCaja.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmConfiguracion.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmLogin.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmUsuario.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmUsuarios.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Servicios\Seguridad.cs" />
     <Compile Include="Servicios\Sesion.cs" />
     <Compile Include="Program.cs" />

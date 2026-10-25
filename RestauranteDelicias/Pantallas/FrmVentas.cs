@@ -105,7 +105,7 @@ namespace RestauranteDelicias.Pantallas
                 o = OrdenRepo.Cargar(v.Id);
                 pagos = OrdenRepo.Pagos(v.Id);
             })) return;
-            Ui.Seguro(this, () => Ticket.Imprimir(Ticket.Texto(o, v.NumeroTicket, v.Cierre, pagos) + Environment.NewLine + "         ** REIMPRESIÓN **", this));
+            Ui.Seguro(this, () => Ticket.Imprimir(Ticket.Reimpresion(Ticket.Texto(o, v.NumeroTicket, v.Cierre, pagos)), this));
         }
 
         void Exportar()

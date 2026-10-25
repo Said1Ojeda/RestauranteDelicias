@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using RestauranteDelicias.Datos;
 using RestauranteDelicias.Pantallas;
@@ -8,9 +9,16 @@ namespace RestauranteDelicias
 {
     internal static class Program
     {
+        [DllImport("user32.dll")]
+        static extern bool SetProcessDPIAware();
+
         [STAThread]
         static void Main()
         {
+            // asi windows no estira la ventana como imagen y las letras salen nitidas con el escalado al 125 o 150
+            try { if (Environment.OSVersion.Version.Major >= 6) SetProcessDPIAware(); }
+            catch (Exception) { }
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 

@@ -22,7 +22,7 @@ namespace RestauranteDelicias.Pantallas
 
         readonly FlowLayoutPanel categorias = new FlowLayoutPanel();
         readonly TextBox txtBuscar = new TextBox();
-        readonly ListView lstMenu = new ListView();
+        readonly FlowLayoutPanel panelMenu = new FlowLayoutPanel();
         readonly NumericUpDown numCantidad = new NumericUpDown();
         readonly TextBox txtNota = new TextBox();
         readonly DataGridView grid = new DataGridView();
@@ -34,8 +34,8 @@ namespace RestauranteDelicias.Pantallas
         readonly Label lblDescuentoTexto = new Label();
         readonly Label lblIva = new Label();
         readonly Label lblTotal = new Label();
-        readonly Button btnCobrar;
-        readonly Button btnEnviar;
+        readonly Boton btnCobrar;
+        readonly Boton btnEnviar;
         readonly Timer timer = new Timer();
 
         public FrmOrden(int mesaId, int mesaNumero)
@@ -45,50 +45,70 @@ namespace RestauranteDelicias.Pantallas
             Estilo.Formulario(this, "Mesa " + mesaNumero, 1100, 680);
             WindowState = FormWindowState.Maximized;
 
-            var division = new SplitContainer { Dock = DockStyle.Fill, BackColor = Estilo.Crema };
+            var division = new SplitContainer { Dock = DockStyle.Fill, BackColor = Estilo.Borde, SplitterWidth = 1 };
+            division.Panel1.BackColor = Estilo.Crema;
+            division.Panel2.BackColor = Color.White;
             Load += (s, e) =>
             {
-                division.Panel1MinSize = 380;
-                division.SplitterDistance = Math.Max(420, Width * 42 / 100);
+                division.Panel1MinSize = Estilo.Px(380);
+                division.SplitterDistance = Math.Max(Estilo.Px(440), Width * 52 / 100);
             };
 
-            // izquierda el menu
-            var buscar = new Panel { Dock = DockStyle.Top, Height = 40, Padding = new Padding(8, 8, 8, 0) };
-            txtBuscar.Dock = DockStyle.Fill;
+            // izquierda el menu en tarjetas, con buscador y las categorias como filtros
+            var buscar = new Panel { Dock = DockStyle.Top, Height = 56, Padding = new Padding(14, 12, 14, 0) };
+            txtBuscar.Font = Estilo.Normal;
+            var campoBuscar = Estilo.Campo(txtBuscar);
+            campoBuscar.Dock = DockStyle.Fill;
             txtBuscar.TextChanged += (s, e) => MostrarMenu();
-            buscar.Controls.Add(txtBuscar);
-            buscar.Controls.Add(new Label { Text = "Buscar", AutoSize = true, Dock = DockStyle.Left, Padding = new Padding(0, 4, 6, 0) });
+            txtBuscar.KeyDown += (s, e) =>
+            {
+                // enter agrega el primero que salga en la busqueda
+                if (e.KeyCode != Keys.Enter) return;
+                e.SuppressKeyPress = true;
+                var primero = Visibles().FirstOrDefault(p => p.Disponible);
+                if (primero != null) Agregar(primero);
+            };
+            var lupa = new Label
+            {
+                Text = Estilo.HayIconos ? Icono.Buscar : "Buscar",
+                Font = Estilo.HayIconos ? Estilo.Iconos(13f) : Estilo.Normal,
+                ForeColor = Estilo.Suave,
+                AutoSize = false,
+                Width = Estilo.HayIconos ? 34 : 60,
+                Dock = DockStyle.Left,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            buscar.Controls.Add(campoBuscar);
+            buscar.Controls.Add(lupa);
 
             categorias.Dock = DockStyle.Top;
             categorias.AutoSize = true;
-            categorias.Padding = new Padding(8, 4, 8, 4);
+            categorias.Padding = new Padding(10, 8, 10, 4);
 
-            lstMenu.Dock = DockStyle.Fill;
-            lstMenu.View = View.Details;
-            lstMenu.FullRowSelect = true;
-            lstMenu.MultiSelect = false;
-            lstMenu.HideSelection = false;
-            lstMenu.Font = new Font("Segoe UI", 11f);
-            lstMenu.Columns.Add("Platillo", 280);
-            lstMenu.Columns.Add("Precio", 100, HorizontalAlignment.Right);
-            lstMenu.DoubleClick += (s, e) => AgregarSeleccionado();
-            lstMenu.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) AgregarSeleccionado(); };
+            panelMenu.Dock = DockStyle.Fill;
+            panelMenu.AutoScroll = true;
+            panelMenu.Padding = new Padding(8, 4, 8, 8);
+            panelMenu.BackColor = Estilo.Crema;
 
-            var agregar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, Padding = new Padding(8) };
+            var agregar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 62, Padding = new Padding(12, 12, 12, 8), BackColor = Color.White };
+            agregar.Paint += (s, e) => { using (var p = new Pen(Estilo.Borde)) e.Graphics.DrawLine(p, 0, 0, agregar.Width, 0); };
             numCantidad.Minimum = 1;
             numCantidad.Maximum = 50;
             numCantidad.Width = 60;
-            txtNota.Width = 220;
+            numCantidad.Font = Estilo.Grande;
+            numCantidad.BorderStyle = BorderStyle.FixedSingle;
             txtNota.MaxLength = 150;
-            var btnAgregar = Estilo.Boton("Agregar", Estilo.Libre);
-            btnAgregar.Click += (s, e) => AgregarSeleccionado();
-            agregar.Controls.Add(new Label { Text = "Cant.", AutoSize = true, Margin = new Padding(4, 8, 0, 0) });
+            txtNota.Font = Estilo.Normal;
+            var campoNota = Estilo.Campo(txtNota);
+            campoNota.Width = 260;
+            campoNota.Margin = new Padding(4, 0, 4, 0);
+            agregar.Controls.Add(new Label { Text = "Cantidad", AutoSize = true, ForeColor = Estilo.Suave, Margin = new Padding(0, 9, 4, 0) });
             agregar.Controls.Add(numCantidad);
-            agregar.Controls.Add(new Label { Text = "Nota", AutoSize = true, Margin = new Padding(8, 8, 0, 0) });
-            agregar.Controls.Add(txtNota);
-            agregar.Controls.Add(btnAgregar);
+            agregar.Controls.Add(new Label { Text = "Nota", AutoSize = true, ForeColor = Estilo.Suave, Margin = new Padding(14, 9, 4, 0) });
+            agregar.Controls.Add(campoNota);
+            agregar.Controls.Add(new Label { Text = "Toca un platillo para agregarlo", AutoSize = true, ForeColor = Estilo.Suave, Font = Estilo.Chica, Margin = new Padding(10, 11, 0, 0) });
 
-            division.Panel1.Controls.Add(lstMenu);
+            division.Panel1.Controls.Add(panelMenu);
             division.Panel1.Controls.Add(agregar);
             division.Panel1.Controls.Add(categorias);
             division.Panel1.Controls.Add(buscar);
@@ -103,16 +123,27 @@ namespace RestauranteDelicias.Pantallas
             grid.Columns.Add("estado", "Estado");
             grid.Columns.Add("subtotal", "Subtotal");
             grid.Columns["cant"].FillWeight = 40;
+            grid.Columns["cant"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             grid.Columns["platillo"].FillWeight = 150;
+            grid.Columns["platillo"].DefaultCellStyle.Font = Estilo.Negrita;
+            grid.Columns["nota"].DefaultCellStyle.ForeColor = Estilo.Suave;
             grid.Columns["estado"].FillWeight = 70;
             grid.Columns["subtotal"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            grid.Columns["subtotal"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            grid.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Add || e.KeyCode == Keys.Oemplus) { Mas(); e.Handled = true; }
+                else if (e.KeyCode == Keys.Subtract || e.KeyCode == Keys.OemMinus) { Menos(); e.Handled = true; }
+                else if (e.KeyCode == Keys.Delete) { Quitar(); e.Handled = true; }
+            };
 
-            var acciones = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(4) };
-            var btnMas = Estilo.Boton("+1", Estilo.Gris);
-            var btnMenos = Estilo.Boton("-1", Estilo.Gris);
-            var btnQuitar = Estilo.Boton("Quitar", Estilo.Ocupada);
-            btnEnviar = Estilo.Boton("Enviar a cocina", Estilo.Naranja);
-            var btnDescuento = Estilo.Boton("Descuento", Estilo.Azul);
+            var acciones = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 10, 10, 6), BackColor = Color.White };
+            var btnMas = Estilo.Chip("+1", Estilo.Gris);
+            var btnMenos = Estilo.Chip("-1", Estilo.Gris);
+            var btnQuitar = Estilo.Boton("Quitar", Estilo.Ocupada, Icono.Quitar);
+            btnEnviar = Estilo.Boton("Enviar a cocina", Estilo.Naranja, Icono.Enviar);
+            var btnDescuento = Estilo.Boton("Descuento", Estilo.Azul, Icono.Descuento);
+            btnQuitar.Contorno = btnDescuento.Contorno = true;
             btnDescuento.Click += (s, e) => Descontar();
             btnMas.Click += (s, e) => Mas();
             btnMenos.Click += (s, e) => Menos();
@@ -122,20 +153,21 @@ namespace RestauranteDelicias.Pantallas
             numPersonas.Minimum = 1;
             numPersonas.Maximum = 50;
             numPersonas.Width = 55;
+            numPersonas.BorderStyle = BorderStyle.FixedSingle;
             numPersonas.ValueChanged += (s, e) => GuardarDatos();
             acciones.Controls.AddRange(new Control[]
             {
                 btnMas, btnMenos, btnQuitar, btnEnviar, btnDescuento,
-                new Label { Text = "Personas", AutoSize = true, Margin = new Padding(16, 10, 0, 0) }, numPersonas
+                new Label { Text = "Personas", AutoSize = true, ForeColor = Estilo.Suave, Margin = new Padding(16, 12, 2, 0) }, numPersonas
             });
 
             var totales = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 240,
+                Height = 252,
                 ColumnCount = 2,
-                Padding = new Padding(10),
-                BackColor = Color.White
+                Padding = new Padding(20, 14, 20, 12),
+                BackColor = Estilo.Crema
             };
             totales.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             totales.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -143,6 +175,7 @@ namespace RestauranteDelicias.Pantallas
             chkPropina.Text = "Propina " + Configuracion.Propina.ToString("0.##") + "%";
             chkPropina.AutoSize = true;
             chkPropina.Checked = true;
+            chkPropina.ForeColor = Estilo.Suave;
             chkPropina.CheckedChanged += (s, e) => GuardarDatos();
 
             lblDescuentoTexto.AutoSize = true;
@@ -152,26 +185,30 @@ namespace RestauranteDelicias.Pantallas
                 l.AutoSize = true;
                 l.Anchor = AnchorStyles.Right;
             }
-            lblIva.ForeColor = Estilo.Gris;
+            lblIva.ForeColor = Estilo.Suave;
             lblTotal.Font = Estilo.Total;
-            lblTotal.ForeColor = Estilo.Vino;
+            lblTotal.ForeColor = Estilo.Texto;
 
-            totales.Controls.Add(new Label { Text = "Subtotal", AutoSize = true }, 0, 0);
+            totales.Controls.Add(new Label { Text = "Subtotal", AutoSize = true, ForeColor = Estilo.Suave }, 0, 0);
             totales.Controls.Add(lblSubtotal, 1, 0);
             totales.Controls.Add(lblDescuentoTexto, 0, 1);
             totales.Controls.Add(lblDescuento, 1, 1);
             totales.Controls.Add(chkPropina, 0, 2);
             totales.Controls.Add(lblPropina, 1, 2);
-            totales.Controls.Add(new Label { Text = "TOTAL", AutoSize = true, Font = Estilo.Negrita, Anchor = AnchorStyles.Left }, 0, 3);
+            totales.Controls.Add(new Label { Text = "Total", AutoSize = true, Font = Estilo.Grande, Anchor = AnchorStyles.Left }, 0, 3);
             totales.Controls.Add(lblTotal, 1, 3);
-            totales.Controls.Add(new Label { Text = "IVA incluido", AutoSize = true, ForeColor = Estilo.Gris }, 0, 4);
+            totales.Controls.Add(new Label { Text = "IVA incluido", AutoSize = true, ForeColor = Estilo.Suave, Font = Estilo.Chica }, 0, 4);
             totales.Controls.Add(lblIva, 1, 4);
 
-            var botonesFin = new FlowLayoutPanel { AutoSize = true, Anchor = AnchorStyles.Right, FlowDirection = FlowDirection.RightToLeft };
-            btnCobrar = Estilo.Boton("Cobrar", Estilo.Vino);
+            var botonesFin = new FlowLayoutPanel { AutoSize = true, Anchor = AnchorStyles.Right, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 8, 0, 0) };
+            btnCobrar = Estilo.Boton("Cobrar   F9", Estilo.Vino, Icono.Tarjeta);
+            btnCobrar.Font = Estilo.Grande;
+            btnCobrar.Padding = new Padding(22, 10, 22, 10);
             // el mesero toma la orden pero el cobro es de caja
             btnCobrar.Visible = Sesion.PuedeCobrar;
-            var btnVolver = Estilo.Boton("Volver a mesas", Estilo.Gris);
+            var btnVolver = Estilo.Boton("Volver a mesas", Estilo.Gris, Icono.Volver);
+            btnVolver.Contorno = true;
+            btnVolver.Padding = new Padding(16, 10, 16, 10);
             btnCobrar.Click += (s, e) => Cobrar();
             btnVolver.Click += (s, e) => Close();
             botonesFin.Controls.AddRange(new Control[] { btnCobrar, btnVolver });
@@ -190,6 +227,21 @@ namespace RestauranteDelicias.Pantallas
             // solo cuando esta pantalla es la activa, para no moverle nada a alguien que esta cobrando o anulando
             timer.Tick += (s, e) => { if (orden != null && Form.ActiveForm == this) Recargar(false); };
 
+            // atajos para el que cobra rapido
+            KeyPreview = true;
+            KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.F2) Enviar(true);
+                else if (e.KeyCode == Keys.F4) Descontar();
+                else if (e.KeyCode == Keys.F9 && btnCobrar.Visible && btnCobrar.Enabled) Cobrar();
+                else if (e.KeyCode == Keys.F3 || (e.Control && e.KeyCode == Keys.F)) { txtBuscar.Focus(); txtBuscar.SelectAll(); }
+                else if (e.KeyCode == Keys.Escape && txtBuscar.Text.Length > 0) txtBuscar.Clear();
+                else if (e.KeyCode == Keys.Escape) Close();
+                else return;
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+            };
+
             Load += (s, e) => Cargar();
             FormClosing += AlCerrar;
             FormClosed += (s, e) => timer.Stop();
@@ -207,33 +259,54 @@ namespace RestauranteDelicias.Pantallas
                 return;
             }
 
-            categorias.Controls.Clear();
+            Estilo.Vaciar(categorias);
             foreach (var cat in new[] { "Todo" }.Concat(menu.Select(p => p.CategoriaNombre).Distinct()))
             {
-                var b = Estilo.Boton(cat, Estilo.Gris);
+                var b = Estilo.Chip(cat, Estilo.Vino);
+                b.Marcado = cat == categoria;
                 string c = cat;
-                b.Click += (s, e) => { categoria = c; MostrarMenu(); };
+                b.Click += (s, e) =>
+                {
+                    categoria = c;
+                    foreach (var otro in categorias.Controls.OfType<Boton>()) otro.Marcado = otro == b;
+                    MostrarMenu();
+                };
                 categorias.Controls.Add(b);
             }
             MostrarMenu();
             Pintar();
             timer.Start();
+            txtBuscar.Focus();
+        }
+
+        IEnumerable<Platillo> Visibles()
+        {
+            var filtro = txtBuscar.Text.Trim().ToLowerInvariant();
+            return menu.Where(x => categoria == "Todo" || x.CategoriaNombre == categoria)
+                       .Where(x => filtro.Length == 0 || x.Nombre.ToLowerInvariant().Contains(filtro));
         }
 
         void MostrarMenu()
         {
-            var filtro = txtBuscar.Text.Trim().ToLowerInvariant();
-            lstMenu.BeginUpdate();
-            lstMenu.Items.Clear();
-            foreach (var p in menu.Where(x => categoria == "Todo" || x.CategoriaNombre == categoria)
-                                  .Where(x => filtro.Length == 0 || x.Nombre.ToLowerInvariant().Contains(filtro)))
+            panelMenu.SuspendLayout();
+            Estilo.Vaciar(panelMenu);
+            foreach (var p in Visibles())
             {
-                var item = new ListViewItem(p.Disponible ? p.Nombre : p.Nombre + " (agotado)") { Tag = p };
-                item.SubItems.Add(Ticket.Q(p.Precio));
-                if (!p.Disponible) item.ForeColor = Color.Silver;
-                lstMenu.Items.Add(item);
+                var platillo = p;
+                var t = new Tarjeta
+                {
+                    Titulo = p.Nombre,
+                    Pie = Ticket.Q(p.Precio),
+                    Etiqueta = p.Disponible ? "" : "Agotado",
+                    Apagada = !p.Disponible,
+                    Acento = Estilo.DeTexto(p.CategoriaColor, Estilo.Vino),
+                    Size = new Size(Estilo.Px(168), Estilo.Px(104)),
+                    Margin = new Padding(Estilo.Px(5))
+                };
+                t.Click += (s, e) => Agregar(platillo);
+                panelMenu.Controls.Add(t);
             }
-            lstMenu.EndUpdate();
+            panelMenu.ResumeLayout();
         }
 
         void Recargar(bool mostrarErrores = true)
@@ -274,7 +347,8 @@ namespace RestauranteDelicias.Pantallas
                 {
                     int i = grid.Rows.Add(l.Cantidad, l.Nombre, l.Nota, l.Estado == "Nuevo" ? "Sin enviar" : l.Estado, Ticket.Q(l.Subtotal));
                     grid.Rows[i].Tag = l;
-                    if (l.Estado == "Nuevo") grid.Rows[i].DefaultCellStyle.ForeColor = Estilo.Naranja;
+                    grid.Rows[i].Cells["estado"].Style.ForeColor = ColorEstado(l.Estado);
+                    grid.Rows[i].Cells["estado"].Style.SelectionForeColor = ColorEstado(l.Estado);
                     if (seleccion != null && l.Id == seleccion.Id) grid.CurrentCell = grid.Rows[i].Cells[0];
                 }
                 numPersonas.Value = Math.Min(Math.Max(orden.Personas, 1), 50);
@@ -287,12 +361,23 @@ namespace RestauranteDelicias.Pantallas
             lblIva.Text = Ticket.Q(o.IvaIncluido(Configuracion.Iva));
             lblTotal.Text = Ticket.Q(o.Total);
             lblDescuento.Text = o.Descuento > 0 ? "-" + Ticket.Q(o.Descuento) : "";
-            lblDescuentoTexto.Text = o.Descuento > 0 ? "Descuento" + (string.IsNullOrEmpty(o.DescuentoMotivo) ? "" : " (" + o.DescuentoMotivo + ")") : "";
+            lblDescuentoTexto.Text = o.Descuento > 0 ? "Descuento" + (string.IsNullOrEmpty(o.DescuentoMotivo) ? "" : " · " + o.DescuentoMotivo) : "";
             Text = "Mesa " + mesaNumero + (orden != null && orden.Mesero != null ? " · atiende " + orden.Mesero : "");
             btnCobrar.Enabled = orden != null && !orden.Vacia;
             btnEnviar.Enabled = orden != null && orden.SinEnviar > 0;
-            btnEnviar.Text = orden != null && orden.SinEnviar > 0 ? "Enviar a cocina (" + orden.SinEnviar + ")" : "Enviar a cocina";
+            btnEnviar.Text = orden != null && orden.SinEnviar > 0 ? "Enviar a cocina · " + orden.SinEnviar + "   F2" : "Enviar a cocina   F2";
             cargando = false;
+        }
+
+        static Color ColorEstado(string estado)
+        {
+            switch (estado)
+            {
+                case "Nuevo": return Estilo.Naranja;
+                case "Listo": return Estilo.Libre;
+                case "Entregado": return Estilo.Suave;
+                default: return Estilo.Azul;
+            }
         }
 
         LineaOrden Seleccionada()
@@ -300,14 +385,8 @@ namespace RestauranteDelicias.Pantallas
             return grid.CurrentRow == null ? null : grid.CurrentRow.Tag as LineaOrden;
         }
 
-        void AgregarSeleccionado()
+        void Agregar(Platillo platillo)
         {
-            if (lstMenu.SelectedItems.Count == 0)
-            {
-                MessageBox.Show(this, "Escoge un platillo del menú.", "Agregar", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-            var platillo = (Platillo)lstMenu.SelectedItems[0].Tag;
             if (!platillo.Disponible)
             {
                 MessageBox.Show(this, platillo.Nombre + " está agotado por hoy.", "Agregar", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -407,10 +486,11 @@ namespace RestauranteDelicias.Pantallas
         void Descontar()
         {
             if (orden == null || orden.Vacia) return;
-            var texto = Microsoft.VisualBasic.Interaction.InputBox(
-                "Descuento sobre el consumo de " + Ticket.Q(orden.Subtotal) + "\nEscribe un monto (25) o un porcentaje (10%). 0 para quitarlo.",
-                "Descuento", orden.Descuento > 0 ? orden.Descuento.ToString("0.00") : "").Trim();
-            if (texto.Length == 0) return;
+            var texto = FrmPregunta.Texto(this, "Descuento",
+                "Descuento sobre el consumo de " + Ticket.Q(orden.Subtotal) + ". Escribe un monto como 25 o un porcentaje como 10%. Pon 0 para quitarlo.",
+                orden.Descuento > 0 ? orden.Descuento.ToString("0.00") : "");
+            if (string.IsNullOrWhiteSpace(texto)) return;
+            texto = texto.Trim();
 
             decimal valor;
             var esPorcentaje = texto.EndsWith("%");
@@ -425,7 +505,7 @@ namespace RestauranteDelicias.Pantallas
             string motivo = "";
             if (monto > 0)
             {
-                motivo = Microsoft.VisualBasic.Interaction.InputBox("¿Por qué se hace el descuento?", "Descuento", "").Trim();
+                motivo = (FrmPregunta.Texto(this, "Descuento", "¿Por qué se hace el descuento?", "") ?? "").Trim();
                 if (motivo.Length < 3) return;
             }
             var autorizo = FrmLogin.Autorizar(this, "el descuento");
