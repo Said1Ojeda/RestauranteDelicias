@@ -1,27 +1,50 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using RestauranteDelicias.Datos;
+using RestauranteDelicias.Pantallas;
+using RestauranteDelicias.Servicios;
 
 namespace RestauranteDelicias
 {
     internal static class Program
     {
-        /// <summary>
-        /// Punto de entrada principal para la aplicación.
-        /// </summary>
         [STAThread]
         static void Main()
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // si algo truena que salga el mensaje y no se cierre todo con la mesa a medias
+            // si algo truena que salga el mensaje y quede en el log, sin cerrar todo con la mesa a medias
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += (s, e) =>
-                MessageBox.Show(e.Exception.Message, "Algo salió mal", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            {
+                Log.Error("Sin atrapar", e.Exception);
+                MessageBox.Show(Log.Amigable(e.Exception), "Algo salió mal", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            };
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => Log.Error("Fatal", e.ExceptionObject as Exception ?? new Exception("desconocido"));
 
-            Application.Run(new Pantallas.FrmPrincipal());
+            Log.Info("Inicio en " + Conexion.Equipo);
+
+            string error;
+            if (Instalador.Revisar(Conexion.Cadena, out error) != Instalador.Estado.Lista)
+            {
+                if (error != null) Log.Info("Sin conexion al iniciar: " + error);
+                using (var f = new FrmConexion())
+                    if (f.ShowDialog() != DialogResult.OK) return;
+            }
+
+            try
+            {
+                Configuracion.Cargar();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Cargar configuracion", ex);
+                MessageBox.Show(Log.Amigable(ex), "Restaurante Delicias", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            Application.Run(new FrmPrincipal());
         }
     }
 }

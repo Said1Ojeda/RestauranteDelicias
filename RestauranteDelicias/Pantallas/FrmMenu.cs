@@ -10,48 +10,50 @@ namespace RestauranteDelicias.Pantallas
 {
     public class FrmMenu : Form
     {
-        readonly BindingList<Platillo> lista;
         readonly DataGridView grid = new DataGridView();
+        readonly DataGridViewComboBoxColumn colCategoria = new DataGridViewComboBoxColumn();
+        readonly CheckBox chkInactivos = new CheckBox();
+        BindingList<Platillo> lista = new BindingList<Platillo>();
+        readonly HashSet<Platillo> cambiados = new HashSet<Platillo>();
 
-        public FrmMenu(List<Platillo> menu)
+        public FrmMenu()
         {
-            Estilo.Formulario(this, "Menú", 720, 520);
-
-            // se trabaja sobre una copia, si cancelan no se toca el menu de verdad
-            lista = new BindingList<Platillo>(menu.Select(p => new Platillo
-            {
-                Id = p.Id,
-                Nombre = p.Nombre,
-                Categoria = p.Categoria,
-                Precio = p.Precio,
-                Disponible = p.Disponible
-            }).ToList());
+            Estilo.Formulario(this, "Menú", 900, 560);
 
             Estilo.Tabla(grid);
             grid.Dock = DockStyle.Fill;
             grid.AutoGenerateColumns = false;
             grid.EditMode = DataGridViewEditMode.EditOnKeystrokeOrF2;
 
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Nombre", HeaderText = "Platillo", FillWeight = 200 });
-            var colCategoria = new DataGridViewComboBoxColumn
-            {
-                DataPropertyName = "Categoria",
-                HeaderText = "Categoría",
-                FlatStyle = FlatStyle.Flat,
-                FillWeight = 110
-            };
-            colCategoria.Items.AddRange(Almacen.Categorias);
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Nombre", HeaderText = "Platillo", FillWeight = 160 });
+            colCategoria.DataPropertyName = "CategoriaId";
+            colCategoria.HeaderText = "Categoría";
+            colCategoria.ValueMember = "Id";
+            colCategoria.DisplayMember = "Nombre";
+            colCategoria.FlatStyle = FlatStyle.Flat;
+            colCategoria.FillWeight = 100;
             grid.Columns.Add(colCategoria);
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Descripcion", HeaderText = "Descripción", FillWeight = 180 });
             grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Precio",
                 HeaderText = "Precio (Q)",
-                FillWeight = 70,
+                FillWeight = 60,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "0.00", Alignment = DataGridViewContentAlignment.MiddleRight }
             });
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "Disponible", HeaderText = "Disponible", FillWeight = 60 });
-            grid.DataSource = lista;
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "Disponible", HeaderText = "Hay hoy", FillWeight = 45 });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "Activo", HeaderText = "En el menú", FillWeight = 50 });
 
+            grid.CellValueChanged += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.RowIndex < lista.Count) cambiados.Add(lista[e.RowIndex]);
+            };
+            // los checkbox no avisan el cambio hasta que se sale de la celda, asi se guarda al tiro
+            grid.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (grid.IsCurrentCellDirty && grid.CurrentCell is DataGridViewCheckBoxCell)
+                    grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
             grid.DataError += (s, e) =>
             {
                 MessageBox.Show(this, "Revisa el valor, el precio tiene que ser un número.", "Dato inválido",
@@ -60,13 +62,19 @@ namespace RestauranteDelicias.Pantallas
             };
 
             var barra = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, Padding = new Padding(8), FlowDirection = FlowDirection.RightToLeft };
-            var btnGuardar = Estilo.Boton("Guardar", Estilo.Vino);
-            var btnCancelar = Estilo.Boton("Cancelar", Estilo.Gris);
+            var btnGuardar = Estilo.Boton("Guardar cambios", Estilo.Vino);
+            var btnCerrar = Estilo.Boton("Cerrar", Estilo.Gris);
             var btnNuevo = Estilo.Boton("Nuevo platillo", Estilo.Libre);
+            var btnCategoria = Estilo.Boton("Nueva categoría", Estilo.Azul);
             btnGuardar.Click += (s, e) => Guardar();
-            btnCancelar.Click += (s, e) => { DialogResult = DialogResult.Cancel; };
+            btnCerrar.Click += (s, e) => Close();
             btnNuevo.Click += (s, e) => Nuevo();
-            barra.Controls.AddRange(new Control[] { btnGuardar, btnCancelar, btnNuevo });
+            btnCategoria.Click += (s, e) => NuevaCategoria();
+            chkInactivos.Text = "Ver los que ya no están en el menú";
+            chkInactivos.AutoSize = true;
+            chkInactivos.Margin = new Padding(16, 12, 0, 0);
+            chkInactivos.CheckedChanged += (s, e) => { if (PreguntarSiHayCambios()) Cargar(); };
+            barra.Controls.AddRange(new Control[] { btnGuardar, btnCerrar, btnNuevo, btnCategoria, chkInactivos });
 
             var nota = new Label
             {
@@ -74,38 +82,103 @@ namespace RestauranteDelicias.Pantallas
                 Height = 30,
                 Padding = new Padding(8, 8, 0, 0),
                 ForeColor = Estilo.Gris,
-                Text = "Para quitar un platillo desmarca \"Disponible\". Así no se pierde en las ventas anteriores."
+                Text = "\"Hay hoy\" es para cuando se acaba algo en el día. Para sacarlo del menú desmarca \"En el menú\", así no se pierde en las ventas anteriores."
             };
 
             Controls.Add(grid);
             Controls.Add(nota);
             Controls.Add(barra);
             Controls.Add(Estilo.Encabezado("Menú"));
+
+            Load += (s, e) => Cargar();
+            FormClosing += (s, e) => { if (!PreguntarSiHayCambios()) e.Cancel = true; };
+        }
+
+        void Cargar()
+        {
+            List<Categoria> cats = null;
+            List<Platillo> platillos = null;
+            if (!Ui.Seguro(this, () =>
+            {
+                cats = MenuRepo.Categorias(false);
+                platillos = MenuRepo.Platillos(!chkInactivos.Checked);
+            })) return;
+
+            colCategoria.DataSource = cats;
+            lista = new BindingList<Platillo>(platillos);
+            grid.DataSource = lista;
+            cambiados.Clear();
+        }
+
+        // true si se puede seguir, ya sea porque no habia cambios o porque decidio que no le importan
+        bool PreguntarSiHayCambios()
+        {
+            grid.EndEdit();
+            if (cambiados.Count == 0) return true;
+            var r = MessageBox.Show(this, "Hay " + cambiados.Count + " platillo(s) con cambios sin guardar.\n¿Guardarlos?",
+                "Menú", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            if (r == DialogResult.Cancel) return false;
+            if (r == DialogResult.Yes) return Guardar();
+            cambiados.Clear();
+            return true;
         }
 
         void Nuevo()
         {
-            int id = lista.Count == 0 ? 1 : lista.Max(p => p.Id) + 1;
-            lista.Add(new Platillo { Id = id, Nombre = "Nuevo platillo", Categoria = Almacen.Categorias[0], Precio = 0m });
+            var cats = colCategoria.DataSource as List<Categoria>;
+            if (cats == null || cats.Count == 0)
+            {
+                MessageBox.Show(this, "Primero crea una categoría.", "Menú", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var p = new Platillo { Nombre = "Nuevo platillo", CategoriaId = cats[0].Id, Precio = 0m };
+            lista.Add(p);
+            cambiados.Add(p);
             grid.CurrentCell = grid.Rows[grid.Rows.Count - 1].Cells[0];
             grid.BeginEdit(true);
         }
 
-        void Guardar()
+        void NuevaCategoria()
+        {
+            var nombre = Microsoft.VisualBasic.Interaction.InputBox("Nombre de la categoría", "Nueva categoría", "");
+            if (string.IsNullOrWhiteSpace(nombre)) return;
+            var barra = Ui.Confirmar(this, "¿Lo de esta categoría se prepara en la barra de bebidas?\n(Si no, va a cocina)", "Nueva categoría");
+            List<Categoria> cats = null;
+            if (Ui.Seguro(this, () =>
+            {
+                MenuRepo.CrearCategoria(nombre.Trim(), barra ? "Barra" : "Cocina");
+                cats = MenuRepo.Categorias(false);
+            }))
+                colCategoria.DataSource = cats;
+        }
+
+        bool Guardar()
         {
             grid.EndEdit();
-
-            var malo = lista.FirstOrDefault(x => string.IsNullOrWhiteSpace(x.Nombre) || x.Precio <= 0);
+            var malo = cambiados.FirstOrDefault(x => string.IsNullOrWhiteSpace(x.Nombre) || x.Precio <= 0);
             if (malo != null)
             {
                 MessageBox.Show(this, "Todos los platillos necesitan nombre y un precio mayor a cero.", "Menú",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                return false;
             }
 
-            foreach (var p in lista) p.Nombre = p.Nombre.Trim();
-            Almacen.GuardarMenu(lista);
-            DialogResult = DialogResult.OK;
+            var ok = Ui.Seguro(this, () =>
+            {
+                foreach (var p in cambiados.ToList())
+                {
+                    p.Nombre = p.Nombre.Trim();
+                    MenuRepo.GuardarPlatillo(p);
+                    cambiados.Remove(p);
+                }
+            });
+            if (ok)
+            {
+                grid.Refresh();
+                MessageBox.Show(this, "Listo, el menú quedó guardado. Las otras cajas lo ven al abrir la siguiente mesa.", "Menú",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            return ok;
         }
     }
 }

@@ -11,6 +11,8 @@ namespace RestauranteDelicias.Pantallas
         public static readonly Color Libre = Color.FromArgb(46, 139, 87);
         public static readonly Color Ocupada = Color.FromArgb(196, 69, 54);
         public static readonly Color Gris = Color.FromArgb(90, 90, 90);
+        public static readonly Color Naranja = Color.FromArgb(214, 128, 30);
+        public static readonly Color Azul = Color.FromArgb(40, 104, 170);
 
         public static readonly Font Normal = new Font("Segoe UI", 10f);
         public static readonly Font Negrita = new Font("Segoe UI", 10f, FontStyle.Bold);
