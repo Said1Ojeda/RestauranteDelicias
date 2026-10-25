@@ -22,6 +22,7 @@ namespace RestauranteDelicias.Pantallas
         readonly Label lblUsuario = new Label();
         readonly FlowLayoutPanel barra = new FlowLayoutPanel();
         readonly Label lblConexion = new Label();
+        readonly ContextMenuStrip menuAjustes = new ContextMenuStrip();
         readonly Timer timer = new Timer();
         List<MesaEstado> mesas = new List<MesaEstado>();
         bool refrescando;
@@ -46,6 +47,7 @@ namespace RestauranteDelicias.Pantallas
             lblResumen.ForeColor = Estilo.Gris;
             lblConexion.AutoSize = true;
             lblConexion.Margin = new Padding(20, 10, 0, 0);
+            ArmarAjustes();
 
             // encabezado con el nombre del restaurante a la izquierda y quien esta usando la compu a la derecha
             var cabeza = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = Estilo.Vino };
@@ -83,14 +85,14 @@ namespace RestauranteDelicias.Pantallas
                 var nuevas = await Task.Run(() => MesaRepo.Estado());
                 mesas = nuevas;
                 Pintar();
-                lblConexion.Text = "● Conectado a " + Conexion.Describir(Conexion.Cadena);
+                lblConexion.Text = "● En línea";
                 lblConexion.ForeColor = Estilo.Libre;
             }
             catch (Exception ex)
             {
                 // el timer vuelve a intentar solo, no se llena la pantalla de mensajes
                 Log.Error("Refrescar mesas", ex);
-                lblConexion.Text = "● Sin conexión, reintentando... (" + Log.Amigable(ex) + ")";
+                lblConexion.Text = "● Sin conexión, reintentando...";
                 lblConexion.ForeColor = Estilo.Ocupada;
             }
             finally
@@ -212,14 +214,10 @@ namespace RestauranteDelicias.Pantallas
             if (Sesion.EsAdmin)
             {
                 Agregar("Menú", () => new FrmMenu());
-                Agregar("Usuarios", () => new FrmUsuarios());
-                Agregar("Bitácora", () => new FrmBitacora());
-                var datos = Estilo.Boton("Datos", Estilo.Gris);
-                datos.Click += async (s, e) => { await Dialogo(new FrmConfiguracion()); ArmarBarra(); };
-                barra.Controls.Add(datos);
-                var conexion = Estilo.Boton("Conexión", Estilo.Gris);
-                conexion.Click += (s, e) => CambiarConexion();
-                barra.Controls.Add(conexion);
+                // lo de administrar va junto en un menu, asi la barra queda para el trabajo del dia
+                var ajustes = Estilo.Boton("Ajustes ▾", Estilo.Gris);
+                ajustes.Click += (s, e) => menuAjustes.Show(ajustes, new Point(0, 0), ToolStripDropDownDirection.AboveRight);
+                barra.Controls.Add(ajustes);
             }
             var salir = Estilo.Boton("Cambiar usuario", Estilo.Vino);
             salir.Click += (s, e) => CambiarUsuario();
@@ -232,6 +230,19 @@ namespace RestauranteDelicias.Pantallas
             lblTitulo.Text = Configuracion.Nombre + " · Mesas";
             lblUsuario.Text = Sesion.Nombre + " · " + (Sesion.Usuario != null ? Sesion.Usuario.Rol : "") +
                               (Sesion.PuedeCobrar ? (Sesion.TurnoId.HasValue ? " · caja abierta" : " · sin caja") : "");
+        }
+
+        void ArmarAjustes()
+        {
+            menuAjustes.Font = Estilo.Normal;
+            menuAjustes.ShowImageMargin = false;
+            menuAjustes.Items.Add("Usuarios", null, async (s, e) => await Dialogo(new FrmUsuarios()));
+            menuAjustes.Items.Add("Bitácora", null, async (s, e) => await Dialogo(new FrmBitacora()));
+            menuAjustes.Items.Add("Datos del restaurante", null, async (s, e) => { await Dialogo(new FrmConfiguracion()); ArmarBarra(); });
+            menuAjustes.Items.Add(new ToolStripSeparator());
+            menuAjustes.Items.Add("Conexión a la base de datos", null, (s, e) => CambiarConexion());
+            foreach (ToolStripItem i in menuAjustes.Items)
+                i.Padding = new Padding(8, 6, 8, 6);
         }
 
         void Agregar(string texto, Func<Form> crear)
@@ -260,8 +271,11 @@ namespace RestauranteDelicias.Pantallas
             timer.Start();
         }
 
+        // si se cambia mal esta compu deja de ver las mesas, por eso se pregunta antes
         async void CambiarConexion()
         {
+            if (!Ui.Confirmar(this, "Esto cambia a qué servidor se conecta esta compu. Solo se usa si el servidor cambió de nombre o de lugar.\n\n¿Seguir?", "Conexión a la base de datos"))
+                return;
             using (var f = new FrmConexion())
             {
                 if (f.ShowDialog(this) != DialogResult.OK) return;

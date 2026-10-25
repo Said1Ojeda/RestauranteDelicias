@@ -6,7 +6,7 @@ using RestauranteDelicias.Datos;
 
 namespace RestauranteDelicias.Pantallas
 {
-    // sale al arrancar si no hay conexion, y desde el boton de conexion en la pantalla principal
+    // sale sola la primera vez o si no encuentra el servidor, despues solo el admin la abre desde ajustes
     public class FrmConexion : Form
     {
         readonly TextBox txtServidor = new TextBox();

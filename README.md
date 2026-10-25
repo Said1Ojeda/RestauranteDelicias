@@ -14,11 +14,12 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 |---|---|
 | Mesero | Tomar órdenes y mandarlas a cocina |
 | Cajero | Lo del mesero, más cobrar, abrir y cerrar caja y ver las ventas |
-| Admin | Todo, más el menú, los usuarios, la bitácora y los datos del restaurante |
+| Admin | Todo, más el menú y lo que está en **Ajustes**: usuarios, bitácora, datos del restaurante y conexión |
 | Cocina | Su pantalla llega en la fase 3 |
 
 - Contraseñas y PIN guardados con hash PBKDF2 y sal, nunca en texto. Después de 5 intentos fallidos hay que esperar un minuto.
 - "Cambiar usuario" deja la compu en el login sin cerrar el programa.
+- La conexión a la base se configura **una sola vez por compu**. Después cada quien solo entra con su PIN o su clave, sin ver nada del servidor.
 
 **Caja**
 - Cada cajero abre su turno con un fondo inicial. Sin caja abierta no se puede cobrar.
@@ -75,7 +76,7 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 1. Abre `RestauranteDelicias.sln` y dale F5.
 2. Si no encuentra la base, sale la pantalla de **Conexión**. Pon el servidor (en la misma compu es `.\SQLEXPRESS`) y dale a **Crear base de datos**.
 3. Se crean las tablas, un menú de ejemplo y 12 mesas en dos áreas. Dale a **Guardar y entrar**.
-4. Como no hay usuarios todavía, te pide crear el **administrador**. Con él entras y creas a los demás desde **Usuarios**.
+4. Como no hay usuarios todavía, te pide crear el **administrador**. Con él entras y creas a los demás desde **Ajustes → Usuarios**.
 
 ### Actualizar a una versión nueva
 
@@ -90,11 +91,11 @@ La base vive en una sola compu (el servidor) y las demás se conectan a ella:
 1. En el servidor, abre **SQL Server Configuration Manager** y activa **TCP/IP** en los protocolos de SQLEXPRESS. Reinicia el servicio.
 2. Enciende el servicio **SQL Server Browser**.
 3. En el firewall del servidor, permite el puerto **1433 TCP** y el **1434 UDP**.
-4. En cada caja, en la pantalla de Conexión, pon `NOMBRE-DEL-SERVIDOR\SQLEXPRESS`.
+4. En cada caja, la primera vez que se abre el programa sale la pantalla de Conexión. Ahí pon `NOMBRE-DEL-SERVIDOR\SQLEXPRESS`.
    - Usa **Autenticación de Windows** si las compus están en un dominio.
    - Si no, crea en SQL Server un usuario con permisos sobre la base y usa **Usuario de SQL Server**.
 
-La conexión de cada compu se guarda cifrada en su `AppData`, no en el código.
+La conexión de cada compu se guarda cifrada en su `AppData`, no en el código. Si después cambia el servidor, el admin la cambia en **Ajustes → Conexión a la base de datos**.
 
 ## Cómo está hecho
 
