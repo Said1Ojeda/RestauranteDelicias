@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Drawing.Printing;
 using System.Text;
 using System.Windows.Forms;
+using System.Linq;
+using RestauranteDelicias.Datos;
 using RestauranteDelicias.Modelos;
 
 namespace RestauranteDelicias.Servicios
@@ -13,21 +15,29 @@ namespace RestauranteDelicias.Servicios
         // 40 columnas es lo que cabe en un rollo de 80mm con letra de 9
         const int ANCHO = 40;
 
-        public static string Texto(Orden orden, Venta venta, decimal recibido)
+        public static string Texto(Orden orden, int numeroTicket, DateTime fecha, List<Pago> pagos)
         {
             var t = new StringBuilder();
-            t.AppendLine(Centrar("RESTAURANTE DELICIAS"));
-            t.AppendLine(Centrar("Comida chapina"));
+            t.AppendLine(Centrar(Configuracion.Nombre.ToUpper()));
+            Opcional(t, Configuracion.Texto("Restaurante.Lema"));
+            Opcional(t, Configuracion.Texto("Restaurante.Direccion"));
+            Opcional(t, Configuracion.Texto("Restaurante.Telefono"), "Tel. ");
+            Opcional(t, Configuracion.Texto("Restaurante.Nit"), "NIT ");
             t.AppendLine(new string('-', ANCHO));
-            t.AppendLine("Ticket No. " + venta.Numero.ToString("00000"));
-            t.AppendLine("Fecha  " + venta.Fecha.ToString("dd/MM/yyyy HH:mm"));
-            t.AppendLine("Mesa   " + venta.Mesa);
+            t.AppendLine("Ticket No. " + numeroTicket.ToString("00000"));
+            t.AppendLine("Fecha  " + fecha.ToString("dd/MM/yyyy HH:mm"));
+            t.AppendLine(orden.MesaNumero.HasValue ? "Mesa   " + orden.MesaNumero + "   Personas " + orden.Personas : "Para llevar");
             t.AppendLine(new string('-', ANCHO));
 
-            foreach (var l in orden.Lineas)
+            // las lineas iguales se juntan, en el ticket no importa si se pidieron en dos tandas
+            var grupos = orden.Activas
+                .GroupBy(l => new { l.Nombre, l.PrecioUnitario, Nota = l.Nota ?? "" })
+                .Select(g => new { g.Key.Nombre, g.Key.Nota, Cantidad = g.Sum(x => x.Cantidad), Subtotal = g.Sum(x => x.Subtotal) });
+
+            foreach (var l in grupos)
             {
                 // nombre cortado para que el precio no se pase a la otra linea
-                string izq = l.Cantidad + " " + l.Platillo.Nombre;
+                string izq = l.Cantidad + " " + l.Nombre;
                 string der = Q(l.Subtotal);
                 int espacio = ANCHO - der.Length - 1;
                 if (izq.Length > espacio) izq = izq.Substring(0, espacio);
@@ -39,22 +49,34 @@ namespace RestauranteDelicias.Servicios
 
             t.AppendLine(new string('-', ANCHO));
             t.AppendLine(Fila("Subtotal", Q(orden.Subtotal)));
+            if (orden.Descuento > 0)
+                t.AppendLine(Fila("Descuento", "-" + Q(orden.Descuento)));
             if (orden.Propina > 0)
-                t.AppendLine(Fila("Propina 10%", Q(orden.Propina)));
+                t.AppendLine(Fila("Propina " + orden.PorcentajePropina.ToString("0.##") + "%", Q(orden.Propina)));
             t.AppendLine(Fila("TOTAL", Q(orden.Total)));
-            t.AppendLine(Fila("  IVA incluido", Q(orden.IvaIncluido)));
+            t.AppendLine(Fila("  IVA incluido", Q(orden.IvaIncluido(Configuracion.Iva))));
             t.AppendLine(new string('-', ANCHO));
-            t.AppendLine(Fila("Pago", venta.FormaPago));
 
-            if (venta.FormaPago == "Efectivo")
+            foreach (var p in pagos)
             {
-                t.AppendLine(Fila("Recibido", Q(recibido)));
-                t.AppendLine(Fila("Vuelto", Q(recibido - orden.Total)));
+                t.AppendLine(Fila(p.Forma, Q(p.Monto)));
+                if (p.Forma == "Efectivo" && p.Recibido.HasValue && p.Recibido.Value > p.Monto)
+                {
+                    t.AppendLine(Fila("  Recibido", Q(p.Recibido.Value)));
+                    t.AppendLine(Fila("  Vuelto", Q(p.Recibido.Value - p.Monto)));
+                }
+                if (!string.IsNullOrEmpty(p.Referencia))
+                    t.AppendLine(Fila("  Ref.", p.Referencia));
             }
 
             t.AppendLine();
-            t.AppendLine(Centrar("Gracias por su visita"));
+            t.AppendLine(Centrar(Configuracion.Texto("Ticket.Pie", "Gracias por su visita")));
             return t.ToString();
+        }
+
+        static void Opcional(StringBuilder t, string valor, string prefijo = "")
+        {
+            if (!string.IsNullOrWhiteSpace(valor)) t.AppendLine(Centrar(prefijo + valor));
         }
 
         public static void Imprimir(string texto, IWin32Window dueno)
@@ -104,11 +126,13 @@ namespace RestauranteDelicias.Servicios
 
         static string Fila(string izq, string der)
         {
-            return izq.PadRight(ANCHO - der.Length) + der;
+            if (der.Length > ANCHO - 6) der = der.Substring(0, ANCHO - 6);
+            return izq.PadRight(Math.Max(izq.Length + 1, ANCHO - der.Length)) + der;
         }
 
         static string Centrar(string texto)
         {
+            if (texto.Length > ANCHO) texto = texto.Substring(0, ANCHO);
             int izq = Math.Max(0, (ANCHO - texto.Length) / 2);
             return new string(' ', izq) + texto;
         }
