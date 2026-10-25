@@ -6,6 +6,30 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 
 ## Qué hace
 
+**Usuarios y permisos**
+- Se entra con usuario y contraseña, o con un **PIN** en un teclado numérico grande, pensado para la compu que comparten los meseros.
+- Roles:
+
+| Rol | Puede |
+|---|---|
+| Mesero | Tomar órdenes y mandarlas a cocina |
+| Cajero | Lo del mesero, más cobrar, abrir y cerrar caja y ver las ventas |
+| Admin | Todo, más el menú, los usuarios, la bitácora y los datos del restaurante |
+| Cocina | Su pantalla llega en la fase 3 |
+
+- Contraseñas y PIN guardados con hash PBKDF2 y sal, nunca en texto. Después de 5 intentos fallidos hay que esperar un minuto.
+- "Cambiar usuario" deja la compu en el login sin cerrar el programa.
+
+**Caja**
+- Cada cajero abre su turno con un fondo inicial. Sin caja abierta no se puede cobrar.
+- Al cerrar se cuenta el efectivo. El sistema dice cuánto debería haber, si sobra o falta, y lo separa por forma de pago.
+- Imprime el corte de caja con espacio para firma.
+
+**Autorizaciones**
+- Los descuentos y las anulaciones de lo que ya está en cocina piden la autorización de un admin, con usuario y clave o con PIN.
+- Si el que está usando la compu ya es admin, no le pregunta.
+- La bitácora guarda quién lo pidió, quién lo autorizó y desde qué compu.
+
 **Mesas**
 - Mesas agrupadas por área: salón, terraza o las que se configuren.
 - **Verde** si está libre, **roja** si está ocupada y **naranja** si tiene platillos que todavía no se mandaron a cocina.
@@ -18,6 +42,8 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 - **Enviar a cocina**: lo nuevo se marca como enviado. Si se cierra la mesa sin enviar, el sistema pregunta.
 - Lo que no se ha enviado se cambia libremente. Lo que ya está en cocina se **anula con motivo**, y queda en la bitácora.
 - Personas por mesa, propina opcional (10 % por defecto) y el IVA incluido desglosado.
+- Descuento en monto (25) o en porcentaje (10%), con motivo.
+- Cada orden guarda qué mesero la atendió.
 - Si otro mesero agrega algo a la misma mesa desde otra compu, aparece solo.
 
 **Cobro**
@@ -33,7 +59,7 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 - Los cambios de precio quedan en la bitácora.
 
 **Ventas del día**
-- Cobros de cualquier fecha, con el total por forma de pago, el consumo, las propinas y los platillos anulados.
+- Cobros de cualquier fecha, con el mesero, quién cobró, el total por forma de pago, el consumo, las propinas y los platillos anulados.
 - Reimprimir un ticket y exportar a CSV para Excel.
 
 ## Instalación
@@ -49,6 +75,11 @@ Varias cajas y meseros pueden trabajar al mismo tiempo. Todo se guarda en la bas
 1. Abre `RestauranteDelicias.sln` y dale F5.
 2. Si no encuentra la base, sale la pantalla de **Conexión**. Pon el servidor (en la misma compu es `.\SQLEXPRESS`) y dale a **Crear base de datos**.
 3. Se crean las tablas, un menú de ejemplo y 12 mesas en dos áreas. Dale a **Guardar y entrar**.
+4. Como no hay usuarios todavía, te pide crear el **administrador**. Con él entras y creas a los demás desde **Usuarios**.
+
+### Actualizar a una versión nueva
+
+Si la base es de una versión anterior, al abrir el programa avisa y la actualiza sola. Solo agrega tablas y columnas, nunca borra datos. La versión de la base queda guardada en la tabla `Configuracion`.
 
 Si prefieres crear la base a mano, en SSMS corre en orden los scripts de [`BaseDatos/`](BaseDatos).
 
@@ -84,7 +115,7 @@ RestauranteDelicias/
 | `Area`, `Mesa` | El salón, con capacidad y posición de cada mesa |
 | `Orden`, `OrdenDetalle` | Cada cuenta y lo que se pidió, con el estado en cocina y las anulaciones |
 | `Pago` | Cómo se pagó. Una orden puede tener varios pagos |
-| `Usuario`, `Turno` | Usuarios con rol y apertura o cierre de caja (fase 2) |
+| `Usuario`, `Turno` | Usuarios con rol, contraseña y PIN cifrados, y los turnos de caja con su cuadre |
 | `Bitacora` | Anulaciones, cambios de precio y quién lo hizo desde qué compu |
 | `Configuracion` | Nombre, NIT, dirección, porcentajes de propina e IVA y el pie del ticket |
 

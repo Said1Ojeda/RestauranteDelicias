@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -15,6 +15,8 @@ namespace RestauranteDelicias.Modelos
         public bool ConPropina { get; set; }
         public decimal PorcentajePropina { get; set; }
         public decimal Descuento { get; set; }
+        public string DescuentoMotivo { get; set; }
+        public string Mesero { get; set; }
         public DateTime Apertura { get; set; }
         public DateTime? Cierre { get; set; }
         public int? NumeroTicket { get; set; }
@@ -112,6 +114,8 @@ namespace RestauranteDelicias.Modelos
         public decimal Propina { get; set; }
         public decimal Total { get; set; }
         public string Formas { get; set; }
+        public string Mesero { get; set; }
+        public string Cajero { get; set; }
     }
 
     public class TotalForma

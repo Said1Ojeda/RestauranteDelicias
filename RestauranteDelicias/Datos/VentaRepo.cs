@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dapper;
@@ -17,9 +17,13 @@ namespace RestauranteDelicias.Datos
                               WHERE d.OrdenId = o.Id AND d.Anulado = 0) AS Articulos,
                              o.Subtotal, o.Propina, o.Total,
                              STUFF((SELECT N', ' + p.Forma FROM dbo.Pago p WHERE p.OrdenId = o.Id
-                                    FOR XML PATH(''), TYPE).value('.', 'nvarchar(200)'), 1, 2, N'') AS Formas
+                                    FOR XML PATH(''), TYPE).value('.', 'nvarchar(200)'), 1, 2, N'') AS Formas,
+                             me.Nombre AS Mesero,
+                             (SELECT TOP (1) u.Nombre FROM dbo.Pago p JOIN dbo.Usuario u ON u.Id = p.UsuarioId
+                              WHERE p.OrdenId = o.Id ORDER BY p.Id) AS Cajero
                       FROM dbo.Orden o
                       LEFT JOIN dbo.Mesa m ON m.Id = o.MesaId
+                      LEFT JOIN dbo.Usuario me ON me.Id = o.MeseroId
                       WHERE o.Estado = N'Cobrada' AND o.Cierre >= @desde AND o.Cierre < @hasta
                       ORDER BY o.NumeroTicket",
                     new { desde = dia.Date, hasta = dia.Date.AddDays(1) }).ToList();

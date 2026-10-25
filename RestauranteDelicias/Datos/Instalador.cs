@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Data;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
@@ -10,7 +11,18 @@ namespace RestauranteDelicias.Datos
     // crea la base y las tablas desde el programa, para no tener que abrir SSMS en cada compu
     public static class Instalador
     {
-        public enum Estado { SinConexion, SinBase, SinTablas, Lista }
+        public enum Estado { SinConexion, SinBase, SinTablas, Desactualizada, Lista }
+
+        // cada fase que cambia la base agrega aca su script, se corren en orden y una sola vez
+        static readonly Tuple<int, string>[] Migraciones =
+        {
+            Tuple.Create(2, "04_fase2_usuarios_caja.sql")
+        };
+
+        public static int VersionActual
+        {
+            get { return Migraciones.Max(m => m.Item1); }
+        }
 
         public static Estado Revisar(string cs, out string error)
         {
@@ -28,7 +40,8 @@ namespace RestauranteDelicias.Datos
                 using (var c = Conexion.Abrir(cs))
                 {
                     var hay = c.ExecuteScalar<int?>("SELECT OBJECT_ID(N'dbo.Orden', N'U')");
-                    return hay == null ? Estado.SinTablas : Estado.Lista;
+                    if (hay == null) return Estado.SinTablas;
+                    return Version(c) < VersionActual ? Estado.Desactualizada : Estado.Lista;
                 }
             }
             catch (Exception ex)
@@ -60,17 +73,60 @@ namespace RestauranteDelicias.Datos
 
             using (var c = Conexion.Abrir(cs))
             {
-                if (c.ExecuteScalar<int?>("SELECT OBJECT_ID(N'dbo.Orden', N'U')") != null) return;
-
-                // todo en una transaccion, si algo falla la base queda vacia y se puede volver a intentar
-                using (var tx = c.BeginTransaction())
+                if (c.ExecuteScalar<int?>("SELECT OBJECT_ID(N'dbo.Orden', N'U')") == null)
                 {
-                    foreach (var archivo in new[] { "02_esquema.sql", "03_datos_iniciales.sql" })
-                        foreach (var lote in Lotes(LeerScript(archivo)))
-                            c.Execute(lote, transaction: tx, commandTimeout: 120);
-                    tx.Commit();
+                    // todo en una transaccion, si algo falla la base queda vacia y se puede volver a intentar
+                    using (var tx = c.BeginTransaction())
+                    {
+                        foreach (var archivo in new[] { "02_esquema.sql", "03_datos_iniciales.sql" })
+                            CorrerScript(c, tx, archivo);
+                        PonerVersion(c, tx, 1);
+                        tx.Commit();
+                    }
                 }
             }
+            Actualizar(cs);
+        }
+
+        // lleva una base vieja a la version que necesita este programa sin tocar los datos
+        public static void Actualizar(string cs)
+        {
+            using (var c = Conexion.Abrir(cs))
+            {
+                var actual = Version(c);
+                foreach (var m in Migraciones.Where(x => x.Item1 > actual).OrderBy(x => x.Item1))
+                {
+                    using (var tx = c.BeginTransaction())
+                    {
+                        CorrerScript(c, tx, m.Item2);
+                        PonerVersion(c, tx, m.Item1);
+                        tx.Commit();
+                    }
+                    Servicios.Log.Info("Base actualizada a la version " + m.Item1);
+                }
+            }
+        }
+
+        // las bases de la fase 1 no tienen la clave, por eso si no esta se toma como 1
+        static int Version(IDbConnection c, IDbTransaction tx = null)
+        {
+            var v = c.ExecuteScalar<string>("SELECT Valor FROM dbo.Configuracion WHERE Clave = N'Esquema.Version'", transaction: tx);
+            int n;
+            return int.TryParse(v, out n) ? n : 1;
+        }
+
+        static void PonerVersion(IDbConnection c, IDbTransaction tx, int version)
+        {
+            c.Execute(
+                @"UPDATE dbo.Configuracion SET Valor = @v WHERE Clave = N'Esquema.Version';
+                  IF @@ROWCOUNT = 0 INSERT INTO dbo.Configuracion (Clave, Valor) VALUES (N'Esquema.Version', @v);",
+                new { v = version.ToString() }, tx);
+        }
+
+        static void CorrerScript(IDbConnection c, IDbTransaction tx, string archivo)
+        {
+            foreach (var lote in Lotes(LeerScript(archivo)))
+                c.Execute(lote, transaction: tx, commandTimeout: 120);
         }
 
         static string LeerScript(string archivo)

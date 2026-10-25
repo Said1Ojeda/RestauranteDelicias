@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using Dapper;
 using RestauranteDelicias.Modelos;
+using RestauranteDelicias.Servicios;
 
 namespace RestauranteDelicias.Datos
 {
@@ -13,7 +14,8 @@ namespace RestauranteDelicias.Datos
     {
         const string CAMPOS_ORDEN =
             @"o.Id, o.Tipo, o.MesaId, m.Numero AS MesaNumero, o.Estado, o.Personas, o.ConPropina,
-              o.PorcentajePropina, o.Descuento, o.Apertura, o.Cierre, o.NumeroTicket, o.Version";
+              o.PorcentajePropina, o.Descuento, o.DescuentoMotivo, o.Apertura, o.Cierre, o.NumeroTicket, o.Version,
+              u.Nombre AS Mesero";
 
         const string CAMPOS_LINEA =
             @"Id, OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Estado, Anulado, MotivoAnulacion";
@@ -22,7 +24,8 @@ namespace RestauranteDelicias.Datos
         {
             using (var c = Conexion.Abrir())
             using (var r = c.QueryMultiple(
-                "SELECT " + CAMPOS_ORDEN + @" FROM dbo.Orden o LEFT JOIN dbo.Mesa m ON m.Id = o.MesaId WHERE o.Id = @ordenId;
+                "SELECT " + CAMPOS_ORDEN + @" FROM dbo.Orden o LEFT JOIN dbo.Mesa m ON m.Id = o.MesaId
+                  LEFT JOIN dbo.Usuario u ON u.Id = o.MeseroId WHERE o.Id = @ordenId;
                   SELECT " + CAMPOS_LINEA + " FROM dbo.OrdenDetalle WHERE OrdenId = @ordenId ORDER BY Id;",
                 new { ordenId }))
             {
@@ -56,10 +59,10 @@ namespace RestauranteDelicias.Datos
                         if (!id.HasValue)
                         {
                             id = c.ExecuteScalar<int>(
-                                @"INSERT INTO dbo.Orden (Tipo, MesaId, PorcentajePropina, Equipo)
+                                @"INSERT INTO dbo.Orden (Tipo, MesaId, MeseroId, PorcentajePropina, Equipo)
                                   OUTPUT INSERTED.Id
-                                  VALUES (N'Mesa', @mesaId, @propina, @equipo)",
-                                new { mesaId, propina = Configuracion.Propina, equipo = Conexion.Equipo }, tx);
+                                  VALUES (N'Mesa', @mesaId, @mesero, @propina, @equipo)",
+                                new { mesaId, mesero = Sesion.Id, propina = Configuracion.Propina, equipo = Conexion.Equipo }, tx);
                         }
                         tx.Commit();
                         return id.Value;
@@ -94,10 +97,10 @@ namespace RestauranteDelicias.Datos
                               ORDER BY Id);
 
                   IF @@ROWCOUNT = 0
-                      INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota)
-                      SELECT @ordenId, Id, Nombre, @cantidad, Precio, @nota
+                      INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, CreadoPor)
+                      SELECT @ordenId, Id, Nombre, @cantidad, Precio, @nota, @usuario
                       FROM dbo.Platillo WHERE Id = @platilloId;",
-                new { ordenId, platilloId, cantidad, nota }));
+                new { ordenId, platilloId, cantidad, nota, usuario = Sesion.Id }));
         }
 
         // solo se puede cambiar libremente lo que todavia no se mando a cocina
@@ -124,7 +127,7 @@ namespace RestauranteDelicias.Datos
         }
 
         // lo que ya esta en cocina no se borra, se anula con motivo y queda en la bitacora
-        public static void Anular(int lineaId, int cantidad, string motivo)
+        public static void Anular(int lineaId, int cantidad, string motivo, int autorizo)
         {
             Ejecutar(c =>
             {
@@ -137,8 +140,10 @@ namespace RestauranteDelicias.Datos
 
                     if (cantidad >= l.Cantidad)
                     {
-                        c.Execute("UPDATE dbo.OrdenDetalle SET Anulado = 1, MotivoAnulacion = @motivo WHERE Id = @lineaId",
-                            new { lineaId, motivo }, tx);
+                        c.Execute(
+                            @"UPDATE dbo.OrdenDetalle SET Anulado = 1, MotivoAnulacion = @motivo, AnuladoPor = @usuario, AutorizadoPor = @autorizo
+                              WHERE Id = @lineaId",
+                            new { lineaId, motivo, usuario = Sesion.Id, autorizo }, tx);
                     }
                     else
                     {
@@ -146,13 +151,16 @@ namespace RestauranteDelicias.Datos
                         c.Execute("UPDATE dbo.OrdenDetalle SET Cantidad = Cantidad - @cantidad WHERE Id = @lineaId",
                             new { lineaId, cantidad }, tx);
                         c.Execute(
-                            @"INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Estado, Enviado, Anulado, MotivoAnulacion)
-                              SELECT OrdenId, PlatilloId, Nombre, @cantidad, PrecioUnitario, Nota, Estado, Enviado, 1, @motivo
+                            @"INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Estado, Enviado,
+                                                            Anulado, MotivoAnulacion, CreadoPor, AnuladoPor, AutorizadoPor)
+                              SELECT OrdenId, PlatilloId, Nombre, @cantidad, PrecioUnitario, Nota, Estado, Enviado,
+                                     1, @motivo, CreadoPor, @usuario, @autorizo
                               FROM dbo.OrdenDetalle WHERE Id = @lineaId",
-                            new { lineaId, cantidad, motivo }, tx);
+                            new { lineaId, cantidad, motivo, usuario = Sesion.Id, autorizo }, tx);
                     }
                     Bitacora.Registrar(c, tx, "Anulación",
-                        cantidad + " x " + l.Nombre + " de la orden " + l.OrdenId + ". Motivo: " + motivo);
+                        cantidad + " x " + l.Nombre + " de la orden " + l.OrdenId + ". Motivo: " + motivo +
+                        (autorizo != Sesion.Id ? ". Autorizó el usuario " + autorizo : ""));
                     tx.Commit();
                 }
             });
@@ -195,6 +203,10 @@ namespace RestauranteDelicias.Datos
         // si otra caja ya la cobro o alguien agrego algo mientras tanto, no se cobra y se avisa
         public static int Cobrar(int ordenId, byte[] version, Pago pago)
         {
+            if (!Sesion.TurnoId.HasValue)
+                throw new AvisoException("Primero abre tu caja para poder cobrar.");
+            var turnoId = Sesion.TurnoId.Value;
+
             return Conexion.ConReintento(() =>
             {
                 using (var c = Conexion.Abrir())
@@ -222,23 +234,50 @@ namespace RestauranteDelicias.Datos
                         throw new AvisoException("El pago no alcanza para el total de " + total.ToString("Q #,##0.00") + ".");
 
                     c.Execute(
-                        @"INSERT INTO dbo.Pago (OrdenId, Forma, Monto, Recibido, Referencia)
-                          VALUES (@ordenId, @Forma, @monto, @Recibido, @Referencia)",
-                        new { ordenId, pago.Forma, monto = total, pago.Recibido, pago.Referencia }, tx);
+                        @"INSERT INTO dbo.Pago (OrdenId, Forma, Monto, Recibido, Referencia, UsuarioId, TurnoId)
+                          VALUES (@ordenId, @Forma, @monto, @Recibido, @Referencia, @usuario, @turnoId)",
+                        new { ordenId, pago.Forma, monto = total, pago.Recibido, pago.Referencia, usuario = Sesion.Id, turnoId }, tx);
 
                     var ticket = c.ExecuteScalar<int>(
                         @"DECLARE @n INT = NEXT VALUE FOR dbo.SecTicket;
                           UPDATE dbo.Orden
                           SET Estado = N'Cobrada', Cierre = SYSDATETIME(), Subtotal = @subtotal, Propina = @propina,
-                              Total = @total, NumeroTicket = @n
+                              Total = @total, NumeroTicket = @n, TurnoId = @turnoId
                           WHERE Id = @ordenId;
                           UPDATE dbo.OrdenDetalle SET Estado = N'Entregado'
                           WHERE OrdenId = @ordenId AND Anulado = 0 AND Estado <> N'Entregado';
                           SELECT @n;",
-                        new { ordenId, subtotal, propina, total }, tx);
+                        new { ordenId, subtotal, propina, total, turnoId }, tx);
 
                     tx.Commit();
                     return ticket;
+                }
+            });
+        }
+
+        // el descuento es un monto en quetzales sobre el consumo, siempre con motivo y con quien lo autorizo
+        public static void Descontar(int ordenId, decimal monto, string motivo, int autorizo)
+        {
+            Ejecutar(c =>
+            {
+                using (var tx = c.BeginTransaction())
+                {
+                    var subtotal = c.ExecuteScalar<decimal>(
+                        "SELECT ISNULL(SUM(Cantidad * PrecioUnitario), 0) FROM dbo.OrdenDetalle WHERE OrdenId = @ordenId AND Anulado = 0",
+                        new { ordenId }, tx);
+                    if (monto < 0 || monto > subtotal)
+                        throw new AvisoException("El descuento no puede ser mayor que el consumo de " + Ticket.Q(subtotal) + ".");
+
+                    var filas = c.Execute(
+                        @"UPDATE dbo.Orden SET Descuento = @monto, DescuentoMotivo = @motivo, DescuentoAutorizo = @autorizo
+                          WHERE Id = @ordenId AND Estado = N'Abierta'",
+                        new { ordenId, monto, motivo = monto == 0 ? null : motivo, autorizo = monto == 0 ? (int?)null : autorizo }, tx);
+                    if (filas == 0) throw new AvisoException("Esta orden ya fue cobrada o anulada en otra caja.");
+
+                    Bitacora.Registrar(c, tx, "Descuento",
+                        Ticket.Q(monto) + " en la orden " + ordenId + (monto > 0 ? ". Motivo: " + motivo : " (se quitó)") +
+                        (autorizo != Sesion.Id ? ". Autorizó el usuario " + autorizo : ""));
+                    tx.Commit();
                 }
             });
         }

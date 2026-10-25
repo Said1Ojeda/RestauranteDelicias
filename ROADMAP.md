@@ -16,15 +16,16 @@ El sistema se va armando por fases. Cada una se puede usar sola, sin esperar a l
 - [x] Ventas del día con totales por forma de pago, reimpresión y CSV
 - [x] Registro de errores en archivo
 
-## Fase 2: usuarios y caja
+## Fase 2: usuarios y caja ✅
 
-- [ ] Login con roles: **Admin**, **Cajero**, **Mesero** y **Cocina**
-- [ ] Contraseñas con hash y sal (PBKDF2), nunca en texto
-- [ ] PIN corto para que el mesero entre rápido en la compu compartida
-- [ ] Cada orden guarda qué mesero la atendió
-- [ ] **Apertura de caja** con el monto inicial y **cierre** con conteo de efectivo y diferencia
-- [ ] Anulaciones y descuentos con autorización de un admin
-- [ ] Pantalla para ver la bitácora
+- [x] Login con roles: **Admin**, **Cajero**, **Mesero** y **Cocina**
+- [x] Contraseñas y PIN con hash y sal (PBKDF2), y bloqueo después de varios intentos
+- [x] PIN corto para que el mesero entre rápido en la compu compartida
+- [x] Cada orden guarda qué mesero la atendió y cada pago quién lo cobró
+- [x] **Apertura de caja** con el fondo inicial y **cierre** con conteo de efectivo, diferencia y corte impreso
+- [x] Anulaciones y descuentos con autorización de un admin
+- [x] Pantallas de usuarios, bitácora y datos del restaurante
+- [x] La base se actualiza sola al instalar una versión nueva
 
 ## Fase 3: operación del restaurante
 
@@ -38,7 +39,7 @@ El sistema se va armando por fases. Cada una se puede usar sola, sin esperar a l
 - [ ] Modificadores con precio: término de la carne, extra queso +Q5, sin hielo
 - [ ] Combos y platillo del día
 - [ ] Pedidos para llevar y a domicilio, con nombre, teléfono y dirección
-- [ ] Configurar áreas, mesas y datos del ticket desde el sistema
+- [ ] Configurar áreas y mesas desde el sistema
 
 ## Fase 4: dejarlo lindísimo
 

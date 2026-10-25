@@ -18,6 +18,9 @@ namespace RestauranteDelicias.Pantallas
         readonly FlowLayoutPanel panelMesas = new FlowLayoutPanel();
         readonly Dictionary<int, Button> botones = new Dictionary<int, Button>();
         readonly Label lblResumen = new Label();
+        readonly Label lblTitulo = new Label();
+        readonly Label lblUsuario = new Label();
+        readonly FlowLayoutPanel barra = new FlowLayoutPanel();
         readonly Label lblConexion = new Label();
         readonly Timer timer = new Timer();
         List<MesaEstado> mesas = new List<MesaEstado>();
@@ -34,29 +37,35 @@ namespace RestauranteDelicias.Pantallas
             panelMesas.Padding = new Padding(16);
             panelMesas.AutoScroll = true;
 
-            var barra = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 56,
-                Padding = new Padding(12, 8, 12, 8),
-                BackColor = Color.White
-            };
-            var btnMenu = Estilo.Boton("Menú", Estilo.Gris);
-            var btnVentas = Estilo.Boton("Ventas del día", Estilo.Gris);
-            var btnConexion = Estilo.Boton("Conexión", Estilo.Gris);
-            btnMenu.Click += (s, e) => Dialogo(new FrmMenu());
-            btnVentas.Click += (s, e) => Dialogo(new FrmVentas());
-            btnConexion.Click += (s, e) => CambiarConexion();
+            barra.Dock = DockStyle.Bottom;
+            barra.Height = 56;
+            barra.Padding = new Padding(12, 8, 12, 8);
+            barra.BackColor = Color.White;
             lblResumen.AutoSize = true;
             lblResumen.Margin = new Padding(20, 10, 0, 0);
             lblResumen.ForeColor = Estilo.Gris;
             lblConexion.AutoSize = true;
             lblConexion.Margin = new Padding(20, 10, 0, 0);
-            barra.Controls.AddRange(new Control[] { btnMenu, btnVentas, btnConexion, lblResumen, lblConexion });
+
+            // encabezado con el nombre del restaurante a la izquierda y quien esta usando la compu a la derecha
+            var cabeza = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = Estilo.Vino };
+            lblTitulo.ForeColor = Color.White;
+            lblTitulo.Font = Estilo.Titulo;
+            lblTitulo.AutoSize = true;
+            lblTitulo.Location = new Point(16, 12);
+            lblUsuario.Dock = DockStyle.Right;
+            lblUsuario.Width = 460;
+            lblUsuario.TextAlign = ContentAlignment.MiddleRight;
+            lblUsuario.ForeColor = Color.White;
+            lblUsuario.Font = Estilo.Negrita;
+            lblUsuario.Padding = new Padding(0, 0, 16, 0);
+            cabeza.Controls.Add(lblUsuario);
+            cabeza.Controls.Add(lblTitulo);
 
             Controls.Add(panelMesas);
             Controls.Add(barra);
-            Controls.Add(Estilo.Encabezado(Configuracion.Nombre + " · Mesas"));
+            Controls.Add(cabeza);
+            ArmarBarra();
 
             timer.Interval = REFRESCO_MS;
             timer.Tick += async (s, e) => await Refrescar();
@@ -185,6 +194,70 @@ namespace RestauranteDelicias.Pantallas
                 hayDialogo = false;
             }
             await Refrescar();
+        }
+
+        // cada quien ve solo los botones de lo que puede hacer
+        void ArmarBarra()
+        {
+            barra.SuspendLayout();
+            barra.Controls.Clear();
+
+            if (Sesion.PuedeCobrar)
+            {
+                var caja = Estilo.Boton(Sesion.TurnoId.HasValue ? "Caja" : "Abrir caja", Sesion.TurnoId.HasValue ? Estilo.Libre : Estilo.Naranja);
+                caja.Click += async (s, e) => { await Dialogo(new FrmCaja()); ArmarBarra(); };
+                barra.Controls.Add(caja);
+            }
+            if (Sesion.PuedeVerVentas) Agregar("Ventas del día", () => new FrmVentas());
+            if (Sesion.EsAdmin)
+            {
+                Agregar("Menú", () => new FrmMenu());
+                Agregar("Usuarios", () => new FrmUsuarios());
+                Agregar("Bitácora", () => new FrmBitacora());
+                var datos = Estilo.Boton("Datos", Estilo.Gris);
+                datos.Click += async (s, e) => { await Dialogo(new FrmConfiguracion()); ArmarBarra(); };
+                barra.Controls.Add(datos);
+                var conexion = Estilo.Boton("Conexión", Estilo.Gris);
+                conexion.Click += (s, e) => CambiarConexion();
+                barra.Controls.Add(conexion);
+            }
+            var salir = Estilo.Boton("Cambiar usuario", Estilo.Vino);
+            salir.Click += (s, e) => CambiarUsuario();
+            barra.Controls.Add(salir);
+            barra.Controls.Add(lblResumen);
+            barra.Controls.Add(lblConexion);
+            barra.ResumeLayout();
+
+            Text = Configuracion.Nombre;
+            lblTitulo.Text = Configuracion.Nombre + " · Mesas";
+            lblUsuario.Text = Sesion.Nombre + " · " + (Sesion.Usuario != null ? Sesion.Usuario.Rol : "") +
+                              (Sesion.PuedeCobrar ? (Sesion.TurnoId.HasValue ? " · caja abierta" : " · sin caja") : "");
+        }
+
+        void Agregar(string texto, Func<Form> crear)
+        {
+            var b = Estilo.Boton(texto, Estilo.Gris);
+            b.Click += async (s, e) => await Dialogo(crear());
+            barra.Controls.Add(b);
+        }
+
+        // la compu queda en el login y el siguiente entra con su usuario, sin cerrar el programa
+        async void CambiarUsuario()
+        {
+            timer.Stop();
+            try { Bitacora.Registrar("Salida", Sesion.Nombre); }
+            catch (Exception ex) { Log.Error("Registrar salida", ex); }
+            Sesion.Cerrar();
+            Hide();
+            if (!FrmLogin.IniciarSesion(null))
+            {
+                Close();
+                return;
+            }
+            ArmarBarra();
+            Show();
+            await Refrescar();
+            timer.Start();
         }
 
         async void CambiarConexion()
