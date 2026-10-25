@@ -8,6 +8,9 @@ namespace RestauranteDelicias.Servicios
         public static Usuario Usuario { get; private set; }
         public static int? TurnoId { get; set; }
 
+        // la pantalla que se cierra para que entre otro lo marca, asi el programa vuelve al login en vez de cerrarse
+        public static bool OtroUsuario { get; set; }
+
         public static int? Id
         {
             get { return Usuario == null ? (int?)null : Usuario.Id; }
@@ -41,5 +44,6 @@ namespace RestauranteDelicias.Servicios
         public static bool PuedeCobrar { get { return Es(Roles.Admin, Roles.Cajero); } }
         public static bool PuedeVerVentas { get { return Es(Roles.Admin, Roles.Cajero); } }
         public static bool PuedeTomarOrdenes { get { return Es(Roles.Admin, Roles.Cajero, Roles.Mesero); } }
+        public static bool EsCocina { get { return Es(Roles.Cocina); } }
     }
 }

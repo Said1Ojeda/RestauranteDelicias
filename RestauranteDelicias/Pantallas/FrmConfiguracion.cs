@@ -5,7 +5,7 @@ using RestauranteDelicias.Datos;
 
 namespace RestauranteDelicias.Pantallas
 {
-    // los datos que salen en el ticket y los porcentajes
+    // los datos que salen en el ticket, los porcentajes y los tiempos
     public class FrmConfiguracion : Form
     {
         readonly Dictionary<string, TextBox> campos = new Dictionary<string, TextBox>();
@@ -19,24 +19,26 @@ namespace RestauranteDelicias.Pantallas
             { "Restaurante.Nit", "NIT" },
             { "Propina.Porcentaje", "Propina sugerida (%)" },
             { "Iva.Porcentaje", "IVA (%)" },
-            { "Ticket.Pie", "Pie del ticket" }
+            { "Ticket.Pie", "Pie del ticket" },
+            { "Sesion.MinutosInactivo", "Minutos sin uso para volver al login, 0 es nunca" },
+            { "Cocina.MinutosAlerta", "Minutos para que un pedido salga en rojo en cocina" }
         };
 
         public FrmConfiguracion()
         {
-            Estilo.Formulario(this, "Datos del restaurante", 560, 470);
+            Estilo.Formulario(this, "Datos del restaurante", 620, 580);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
 
             var t = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16) };
-            t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < CLAVES.GetLength(0); i++)
             {
                 var txt = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(3, 6, 3, 6), MaxLength = 300, Text = Configuracion.Texto(CLAVES[i, 0]) };
                 campos[CLAVES[i, 0]] = txt;
-                t.Controls.Add(new Label { Text = CLAVES[i, 1], AutoSize = true, Margin = new Padding(3, 10, 3, 3) }, 0, i);
+                t.Controls.Add(new Label { Text = CLAVES[i, 1], AutoSize = true, MaximumSize = new System.Drawing.Size(240, 0), ForeColor = Estilo.Suave, Margin = new Padding(3, 8, 3, 3) }, 0, i);
                 t.Controls.Add(txt, 1, i);
             }
 
@@ -69,6 +71,17 @@ namespace RestauranteDelicias.Pantallas
                     return;
                 }
                 campos[clave].Text = n.ToString(CultureInfo.InvariantCulture);
+            }
+
+            foreach (var clave in new[] { "Sesion.MinutosInactivo", "Cocina.MinutosAlerta" })
+            {
+                int n;
+                if (!int.TryParse(campos[clave].Text.Trim(), out n) || n < 0 || n > 240 || (clave == "Cocina.MinutosAlerta" && n < 1))
+                {
+                    MessageBox.Show(this, "Los minutos tienen que ser un número entero entre 0 y 240. El de cocina empieza en 1.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                campos[clave].Text = n.ToString();
             }
 
             var valores = new Dictionary<string, string>();

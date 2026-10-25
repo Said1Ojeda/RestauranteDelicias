@@ -270,38 +270,28 @@ namespace RestauranteDelicias.Pantallas
             DialogResult = DialogResult.OK;
         }
 
-        // pide entrar hasta que alguien con permiso lo haga o se cancele, y deja lista la sesion con su caja
+        // pide entrar y deja lista la sesion con la caja abierta del usuario, si tiene
         public static bool IniciarSesion(IWin32Window dueno)
         {
-            while (true)
+            Usuario u;
+            using (var f = new FrmLogin())
             {
-                Usuario u;
-                using (var f = new FrmLogin())
-                {
-                    if (f.ShowDialog(dueno) != DialogResult.OK) return false;
-                    u = f.Usuario;
-                }
-                if (u.Rol == Roles.Cocina)
-                {
-                    MessageBox.Show(dueno, "La pantalla de cocina todavía no está lista, llega en la siguiente fase.",
-                        "Cocina", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    continue;
-                }
-
-                int? turno = null;
-                try
-                {
-                    var t = TurnoRepo.Abierto(u.Id);
-                    if (t != null) turno = t.Id;
-                }
-                catch (Exception ex)
-                {
-                    Servicios.Log.Error("Turno al entrar", ex);
-                }
-                Servicios.Sesion.Iniciar(u, turno);
-                Servicios.Log.Info("Entró " + u.Login);
-                return true;
+                if (f.ShowDialog(dueno) != DialogResult.OK) return false;
+                u = f.Usuario;
             }
+            int? turno = null;
+            try
+            {
+                var t = TurnoRepo.Abierto(u.Id);
+                if (t != null) turno = t.Id;
+            }
+            catch (Exception ex)
+            {
+                Servicios.Log.Error("Turno al entrar", ex);
+            }
+            Servicios.Sesion.Iniciar(u, turno);
+            Servicios.Log.Info("Entró " + u.Login);
+            return true;
         }
 
         // si quien esta usando el sistema ya es admin no se le pregunta nada
