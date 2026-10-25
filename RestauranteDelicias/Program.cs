@@ -16,7 +16,12 @@ namespace RestauranteDelicias
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+
+            // si algo truena que salga el mensaje y no se cierre todo con la mesa a medias
+            Application.ThreadException += (s, e) =>
+                MessageBox.Show(e.Exception.Message, "Algo salió mal", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+            Application.Run(new Pantallas.FrmPrincipal());
         }
     }
 }
