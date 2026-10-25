@@ -74,6 +74,50 @@ namespace RestauranteDelicias.Servicios
             return t.ToString();
         }
 
+        // corte de caja al cerrar el turno, para guardarlo junto con el efectivo
+        public static string Corte(Turno turno, ResumenTurno r, string notas)
+        {
+            var t = new StringBuilder();
+            t.AppendLine(Centrar(Configuracion.Nombre.ToUpper()));
+            t.AppendLine(Centrar("CORTE DE CAJA"));
+            t.AppendLine(new string('-', ANCHO));
+            t.AppendLine("Cajero  " + turno.Cajero);
+            t.AppendLine("Abrió   " + turno.Apertura.ToString("dd/MM/yyyy HH:mm"));
+            if (turno.Cierre.HasValue) t.AppendLine("Cerró   " + turno.Cierre.Value.ToString("dd/MM/yyyy HH:mm"));
+            t.AppendLine(new string('-', ANCHO));
+            t.AppendLine(Fila("Ventas", r.Ventas.ToString()));
+            t.AppendLine(Fila("Efectivo", Q(r.Efectivo)));
+            t.AppendLine(Fila("Tarjeta", Q(r.Tarjeta)));
+            t.AppendLine(Fila("Transferencia", Q(r.Transferencia)));
+            t.AppendLine(Fila("TOTAL COBRADO", Q(r.Total)));
+            t.AppendLine(Fila("  Propinas incluidas", Q(r.Propinas)));
+            t.AppendLine(new string('-', ANCHO));
+            t.AppendLine(Fila("Fondo inicial", Q(r.MontoInicial)));
+            t.AppendLine(Fila("Debe haber", Q(turno.Esperado ?? r.EsperadoEnCaja)));
+            if (turno.EfectivoContado.HasValue)
+            {
+                var dif = turno.EfectivoContado.Value - (turno.Esperado ?? r.EsperadoEnCaja);
+                t.AppendLine(Fila("Contado", Q(turno.EfectivoContado.Value)));
+                t.AppendLine(Fila("Diferencia", (dif < 0 ? "-" : "") + Q(Math.Abs(dif))));
+            }
+            if (!string.IsNullOrWhiteSpace(notas))
+            {
+                t.AppendLine(new string('-', ANCHO));
+                // en el rollo no cabe mas de una linea, se parte en pedazos
+                var resto = "Notas  " + notas;
+                while (resto.Length > ANCHO)
+                {
+                    t.AppendLine(resto.Substring(0, ANCHO));
+                    resto = resto.Substring(ANCHO);
+                }
+                t.AppendLine(resto);
+            }
+            t.AppendLine();
+            t.AppendLine();
+            t.AppendLine("Firma ______________________________");
+            return t.ToString();
+        }
+
         static void Opcional(StringBuilder t, string valor, string prefijo = "")
         {
             if (!string.IsNullOrWhiteSpace(valor)) t.AppendLine(Centrar(prefijo + valor));

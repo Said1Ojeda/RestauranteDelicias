@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Dapper;
@@ -15,6 +15,24 @@ namespace RestauranteDelicias.Datos
             using (var c = Conexion.Abrir())
                 valores = c.Query("SELECT Clave, Valor FROM dbo.Configuracion")
                     .ToDictionary(r => (string)r.Clave, r => (string)r.Valor);
+        }
+
+        public static void Guardar(IDictionary<string, string> cambios)
+        {
+            using (var c = Conexion.Abrir())
+            using (var tx = c.BeginTransaction())
+            {
+                foreach (var par in cambios)
+                {
+                    c.Execute(
+                        @"UPDATE dbo.Configuracion SET Valor = @Value WHERE Clave = @Key;
+                          IF @@ROWCOUNT = 0 INSERT INTO dbo.Configuracion (Clave, Valor) VALUES (@Key, @Value);",
+                        new { par.Key, par.Value }, tx);
+                }
+                Bitacora.Registrar(c, tx, "Configuración", string.Join(", ", cambios.Keys));
+                tx.Commit();
+            }
+            Cargar();
         }
 
         public static string Texto(string clave, string porDefecto = "")
