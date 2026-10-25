@@ -46,6 +46,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Datos\Almacen.cs" />
+    <Compile Include="Datos\Csv.cs" />
+    <Compile Include="Modelos\LineaOrden.cs" />
+    <Compile Include="Modelos\Orden.cs" />
+    <Compile Include="Modelos\Platillo.cs" />
+    <Compile Include="Modelos\Venta.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
