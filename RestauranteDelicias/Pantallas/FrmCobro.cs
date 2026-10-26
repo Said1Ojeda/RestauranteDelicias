@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using RestauranteDelicias.Datos;
 using RestauranteDelicias.Modelos;
 using RestauranteDelicias.Servicios;
 
@@ -40,6 +41,14 @@ namespace RestauranteDelicias.Pantallas
         readonly Label lblVuelto = new Label();
         readonly Boton btnAceptar;
 
+        readonly FlowLayoutPanel tiposFactura = new FlowLayoutPanel();
+        readonly TableLayoutPanel datosNit = new TableLayoutPanel();
+        readonly TextBox txtNit = new TextBox();
+        readonly TextBox txtNombre = new TextBox();
+        readonly TextBox txtDireccion = new TextBox();
+        readonly Label lblAvisoFactura = new Label();
+        bool conNit;
+
         string modo = TODO;
         string forma = "Efectivo";
         decimal monto;
@@ -56,13 +65,13 @@ namespace RestauranteDelicias.Pantallas
             SaldoVisto = orden.Saldo;
             sinPagar = orden.Activas.Where(l => !l.Pagada).ToList();
 
-            Estilo.Formulario(this, "Cobrar", 640, 740);
+            Estilo.Formulario(this, "Cobrar", 660, 880);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             BackColor = Color.White;
 
-            var t = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(22, 14, 22, 6), BackColor = Color.White };
+            var t = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(22, 14, 22, 6), BackColor = Color.White, AutoScroll = true };
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             t.Controls.Add(Resumen());
@@ -88,6 +97,8 @@ namespace RestauranteDelicias.Pantallas
             ArmarFormas();
             t.Controls.Add(formas);
             t.Controls.Add(ArmarEfectivo());
+            t.Controls.Add(Titulo("Factura"));
+            t.Controls.Add(ArmarFactura());
 
             var botones = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 66, Padding = new Padding(16, 12, 16, 12), FlowDirection = FlowDirection.RightToLeft, BackColor = Estilo.Crema };
             btnAceptar = Estilo.Boton("Cobrar", Estilo.Vino, Icono.Imprimir);
@@ -300,6 +311,71 @@ namespace RestauranteDelicias.Pantallas
             return t;
         }
 
+        // cada pago lleva su NIT, en una cuenta dividida cada quien puede pedir su factura
+        Control ArmarFactura()
+        {
+            var bloque = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0) };
+            tiposFactura.AutoSize = true;
+            tiposFactura.Margin = new Padding(0, 2, 0, 4);
+            foreach (var par in new[] { new[] { "cf", "Consumidor final" }, new[] { "nit", "Con NIT o CUI" } })
+            {
+                var clave = par[0];
+                var b = Estilo.Chip(par[1], Estilo.Vino);
+                b.Tag = clave;
+                b.Click += (s, e) => { conNit = clave == "nit"; Calcular(); if (conNit) txtNit.Focus(); };
+                tiposFactura.Controls.Add(b);
+            }
+            lblAvisoFactura.AutoSize = true;
+            lblAvisoFactura.ForeColor = Estilo.Naranja;
+            lblAvisoFactura.Font = Estilo.Chica;
+            lblAvisoFactura.MaximumSize = new Size(580, 0);
+
+            datosNit.ColumnCount = 2;
+            datosNit.AutoSize = true;
+            datosNit.Width = 590;
+            datosNit.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+            datosNit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            txtNit.MaxLength = 20;
+            txtNombre.MaxLength = 150;
+            txtDireccion.MaxLength = 200;
+            txtDireccion.Text = "Ciudad";
+            var fila = 0;
+            foreach (var par in new[] { Tuple.Create("NIT o CUI", txtNit), Tuple.Create("Nombre", txtNombre), Tuple.Create("Dirección", txtDireccion) })
+            {
+                par.Item2.Font = Estilo.Normal;
+                par.Item2.TextChanged += (s, e) => Calcular();
+                var campo = Estilo.Campo(par.Item2);
+                campo.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+                datosNit.Controls.Add(new Label { Text = par.Item1, AutoSize = true, ForeColor = Estilo.Suave, Anchor = AnchorStyles.Left }, 0, fila);
+                datosNit.Controls.Add(campo, 1, fila);
+                fila++;
+            }
+            // al salir del NIT se busca si ya vino antes, asi no se escribe el nombre otra vez
+            txtNit.Leave += (s, e) => BuscarCliente();
+
+            bloque.Controls.Add(tiposFactura);
+            bloque.Controls.Add(lblAvisoFactura);
+            bloque.Controls.Add(datosNit);
+            return bloque;
+        }
+
+        void BuscarCliente()
+        {
+            if (!Nit.Valido(txtNit.Text) || Nit.EsConsumidorFinal(txtNit.Text)) return;
+            Cliente cliente = null;
+            if (!Ui.Seguro(this, () => cliente = ClienteRepo.Buscar(txtNit.Text)) || cliente == null) return;
+            txtNombre.Text = cliente.Nombre;
+            txtDireccion.Text = cliente.Direccion;
+        }
+
+        string FaltaEnFactura()
+        {
+            if (!conNit) return null;
+            if (!Nit.Valido(txtNit.Text) || Nit.EsConsumidorFinal(txtNit.Text)) return "Escribe un NIT válido o un CUI de 13 números.";
+            if (txtNombre.Text.Trim().Length == 0) return "Escribe el nombre para la factura.";
+            return null;
+        }
+
         bool EsEfectivo
         {
             get { return forma == "Efectivo"; }
@@ -374,6 +450,21 @@ namespace RestauranteDelicias.Pantallas
                 numRecibido.Value = Math.Min(numRecibido.Maximum, Math.Ceiling(monto));
             }
 
+            // desde Q2,500 la SAT no deja consumidor final
+            var debeLlevarNit = monto >= OrdenRepo.LIMITE_CONSUMIDOR_FINAL;
+            if (debeLlevarNit) conNit = true;
+            foreach (var b in tiposFactura.Controls.OfType<Boton>())
+            {
+                b.Marcado = ((string)b.Tag == "nit") == conNit;
+                b.Enabled = !(debeLlevarNit && (string)b.Tag == "cf");
+            }
+            datosNit.Visible = conNit;
+            var faltaFactura = FaltaEnFactura();
+            lblAvisoFactura.Text = debeLlevarNit
+                ? "Desde " + Ticket.Q(OrdenRepo.LIMITE_CONSUMIDOR_FINAL) + " no se puede facturar a consumidor final." + (faltaFactura != null ? " " + faltaFactura : "")
+                : faltaFactura ?? "";
+            lblAvisoFactura.Visible = lblAvisoFactura.Text.Length > 0;
+
             lblRecibido.Visible = numRecibido.Visible = rapidos.Visible = EsEfectivo;
             lblReferencia.Visible = txtReferencia.Visible = !EsEfectivo;
             lblReferencia.Text = forma == "Tarjeta" ? "Últimos 4 dígitos" : "No. de boleta";
@@ -383,14 +474,14 @@ namespace RestauranteDelicias.Pantallas
             {
                 lblVuelto.Text = "-";
                 lblVuelto.ForeColor = Estilo.Suave;
-                btnAceptar.Enabled = monto > 0;
+                btnAceptar.Enabled = monto > 0 && faltaFactura == null;
                 return;
             }
 
             var vuelto = numRecibido.Value - monto;
             lblVuelto.Text = vuelto >= 0 ? Ticket.Q(vuelto) : "Faltan " + Ticket.Q(-vuelto);
             lblVuelto.ForeColor = vuelto >= 0 ? Estilo.Libre : Estilo.Ocupada;
-            btnAceptar.Enabled = monto > 0 && vuelto >= 0;
+            btnAceptar.Enabled = monto > 0 && vuelto >= 0 && faltaFactura == null;
         }
 
         // los billetes mas comunes, el cajero no tiene que teclear
@@ -409,9 +500,12 @@ namespace RestauranteDelicias.Pantallas
 
         void Aceptar()
         {
-            if (monto <= 0) return;
+            if (monto <= 0 || FaltaEnFactura() != null) return;
             Pago = new Pago
             {
+                Nit = conNit ? txtNit.Text : Nit.CONSUMIDOR_FINAL,
+                NombreFactura = conNit ? txtNombre.Text.Trim() : "Consumidor Final",
+                DireccionFactura = conNit && txtDireccion.Text.Trim().Length > 0 ? txtDireccion.Text.Trim() : "Ciudad",
                 Forma = forma,
                 Monto = monto,
                 Parte = NombreDeLaParte(),

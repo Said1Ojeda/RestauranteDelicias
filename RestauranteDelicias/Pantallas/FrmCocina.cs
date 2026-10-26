@@ -265,7 +265,7 @@ namespace RestauranteDelicias.Pantallas
 
             int alto = altoCabeza + altoPie + Estilo.Px(8);
             foreach (var l in comanda.Lineas)
-                alto += Estilo.Px(32) + (string.IsNullOrWhiteSpace(l.Nota) ? 0 : Estilo.Px(22));
+                alto += Estilo.Px(32) + (string.IsNullOrWhiteSpace(l.Opciones) ? 0 : Estilo.Px(22)) + (string.IsNullOrWhiteSpace(l.Nota) ? 0 : Estilo.Px(22));
             Size = new Size(Estilo.Px(300), alto);
 
             var pie = new FlowLayoutPanel
@@ -363,6 +363,14 @@ namespace RestauranteDelicias.Pantallas
                         using (var b = new SolidBrush(Estilo.Azul))
                             g.FillEllipse(b, Width - m - Estilo.Px(10), y + Estilo.Px(10), Estilo.Px(10), Estilo.Px(10));
                     y += Estilo.Px(32);
+
+                    // lo que escogieron va resaltado, es lo que mas se equivoca en cocina
+                    if (!string.IsNullOrWhiteSpace(l.Opciones))
+                    {
+                        TextRenderer.DrawText(g, l.Opciones, Estilo.Negrita, new Rectangle(m + Estilo.Px(34), y - Estilo.Px(4), Width - m * 2 - Estilo.Px(34), Estilo.Px(22)),
+                            Estilo.Mezclar(Estilo.Azul, Color.White, 0.45f), TextFormatFlags.Left | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+                        y += Estilo.Px(22);
+                    }
 
                     if (!string.IsNullOrWhiteSpace(l.Nota))
                     {

@@ -7,6 +7,24 @@ namespace RestauranteDelicias.Modelos
         public int Id { get; set; }
         public string Nombre { get; set; }
         public int Orden { get; set; }
+        public bool Activa { get; set; } = true;
+
+        public override string ToString()
+        {
+            return Nombre;
+        }
+    }
+
+    // una mesa como la ve el admin al configurar el salon
+    public class Mesa
+    {
+        public int Id { get; set; }
+        public int Numero { get; set; }
+        public int AreaId { get; set; }
+        public string AreaNombre { get; set; }
+        public int Capacidad { get; set; } = 4;
+        public string Forma { get; set; } = "Cuadrada";
+        public bool Activa { get; set; } = true;
     }
 
     // como esta cada mesa en este momento, sale de una sola consulta para refrescar rapido

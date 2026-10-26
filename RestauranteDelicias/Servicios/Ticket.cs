@@ -35,12 +35,14 @@ namespace RestauranteDelicias.Servicios
 
             // las lineas iguales se juntan, en el ticket no importa si se pidieron en dos tandas
             var grupos = orden.Activas
-                .GroupBy(l => new { l.Nombre, l.PrecioUnitario, Nota = l.Nota ?? "" })
-                .Select(g => new { g.Key.Nombre, g.Key.Nota, Cantidad = g.Sum(x => x.Cantidad), Subtotal = g.Sum(x => x.Subtotal) });
+                .GroupBy(l => new { l.Nombre, l.PrecioUnitario, Opciones = l.Opciones ?? "", Nota = l.Nota ?? "" })
+                .Select(g => new { g.Key.Nombre, g.Key.Opciones, g.Key.Nota, Cantidad = g.Sum(x => x.Cantidad), Subtotal = g.Sum(x => x.Subtotal) });
 
             foreach (var l in grupos)
             {
                 t.AppendLine(l.Cantidad + "  " + Limpio(l.Nombre) + "\t" + Q(l.Subtotal));
+                if (l.Opciones.Length > 0)
+                    t.AppendLine("~" + Limpio(l.Opciones));
                 if (!string.IsNullOrEmpty(l.Nota))
                     t.AppendLine("~" + Limpio(l.Nota));
             }
@@ -76,7 +78,10 @@ namespace RestauranteDelicias.Servicios
             if (lista.Count > 0)
             {
                 foreach (var l in lista)
+                {
                     t.AppendLine(l.Cantidad + "  " + Limpio(l.Nombre) + "\t" + Q(l.PrecioUnitario * l.Cantidad));
+                    if (!string.IsNullOrEmpty(l.Opciones)) t.AppendLine("~" + Limpio(l.Opciones));
+                }
                 t.AppendLine("~Con su parte de propina y descuento");
                 t.AppendLine("-");
             }
@@ -97,9 +102,8 @@ namespace RestauranteDelicias.Servicios
                 t.AppendLine("Mesa " + orden.MesaNumero + "\t" + orden.Personas + " personas");
             else
             {
-                t.AppendLine((orden.Tipo == "Domicilio" ? "A domicilio" : "Para llevar") + "\t" + Limpio(orden.Cliente));
-                if (!string.IsNullOrWhiteSpace(orden.Telefono)) t.AppendLine("Teléfono\t" + Limpio(orden.Telefono));
-                if (!string.IsNullOrWhiteSpace(orden.Direccion)) t.AppendLine("~" + Limpio(orden.Direccion));
+                t.AppendLine("Para llevar\t#" + (orden.NumeroLlevar ?? 0));
+                if (!string.IsNullOrWhiteSpace(orden.Cliente)) t.AppendLine("A nombre de\t" + Limpio(orden.Cliente));
             }
             if (!string.IsNullOrEmpty(orden.Mesero)) t.AppendLine("Atendió\t" + orden.Mesero);
             t.AppendLine("-");
@@ -112,6 +116,9 @@ namespace RestauranteDelicias.Servicios
                 t.AppendLine("~Recibido " + Q(p.Recibido.Value) + "   Vuelto " + Q(p.Recibido.Value - p.Monto));
             if (!string.IsNullOrEmpty(p.Referencia))
                 t.AppendLine("~Ref. " + Limpio(p.Referencia));
+            t.AppendLine("~NIT " + Limpio(p.Nit) + " · " + Limpio(p.NombreFactura));
+            if (!string.IsNullOrWhiteSpace(p.DireccionFactura) && p.DireccionFactura != "Ciudad")
+                t.AppendLine("~" + Limpio(p.DireccionFactura));
         }
 
         public static string Reimpresion(string texto)

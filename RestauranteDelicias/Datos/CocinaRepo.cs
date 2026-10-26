@@ -16,7 +16,7 @@ namespace RestauranteDelicias.Datos
             List<LineaCocina> lineas;
             using (var c = Conexion.Abrir())
                 lineas = c.Query<LineaCocina>(
-                    @"SELECT d.Id, d.OrdenId, m.Numero AS MesaNumero, o.Tipo, o.Cliente, u.Nombre AS Mesero, d.Nombre, d.Cantidad, d.Nota,
+                    @"SELECT d.Id, d.OrdenId, m.Numero AS MesaNumero, o.Tipo, o.Cliente, o.NumeroLlevar, u.Nombre AS Mesero, d.Nombre, d.Opciones, d.Cantidad, d.Nota,
                              d.Estado, d.Enviado, d.Anulado, cat.Estacion
                       FROM dbo.OrdenDetalle d
                       JOIN dbo.Orden o ON o.Id = d.OrdenId

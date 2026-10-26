@@ -8,7 +8,7 @@ namespace RestauranteDelicias.Pantallas
     {
         readonly TextBox txt = new TextBox();
 
-        FrmPregunta(string titulo, string pregunta, string valor)
+        FrmPregunta(string titulo, string pregunta, string valor, bool oculto)
         {
             Estilo.Formulario(this, titulo, 460, 220);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -21,6 +21,7 @@ namespace RestauranteDelicias.Pantallas
             t.Controls.Add(new Label { Text = pregunta, AutoSize = true, MaximumSize = new Size(410, 0), Font = Estilo.Negrita, Margin = new Padding(0, 0, 0, 10) });
 
             txt.Text = valor ?? "";
+            txt.UseSystemPasswordChar = oculto;
             txt.MaxLength = 150;
             txt.Font = Estilo.Grande;
             var campo = Estilo.Campo(txt);
@@ -45,7 +46,14 @@ namespace RestauranteDelicias.Pantallas
 
         public static string Texto(IWin32Window dueno, string titulo, string pregunta, string valor)
         {
-            using (var f = new FrmPregunta(titulo, pregunta, valor))
+            using (var f = new FrmPregunta(titulo, pregunta, valor, false))
+                return f.ShowDialog(dueno) == DialogResult.OK ? f.txt.Text : null;
+        }
+
+        // para contrasenas y pin, lo escrito no se ve en pantalla
+        public static string Oculto(IWin32Window dueno, string titulo, string pregunta)
+        {
+            using (var f = new FrmPregunta(titulo, pregunta, "", true))
                 return f.ShowDialog(dueno) == DialogResult.OK ? f.txt.Text : null;
         }
     }

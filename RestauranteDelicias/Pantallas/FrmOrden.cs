@@ -137,6 +137,9 @@ namespace RestauranteDelicias.Pantallas
             grid.Columns["cant"].FillWeight = 40;
             grid.Columns["cant"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             grid.Columns["platillo"].FillWeight = 150;
+            // el nombre con sus opciones puede ser largo, la fila crece en vez de cortarlo
+            grid.Columns["platillo"].DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
             grid.Columns["platillo"].DefaultCellStyle.Font = Estilo.Negrita;
             grid.Columns["nota"].DefaultCellStyle.ForeColor = Estilo.Suave;
             grid.Columns["estado"].FillWeight = 70;
@@ -160,6 +163,8 @@ namespace RestauranteDelicias.Pantallas
             btnMas.Click += (s, e) => Mas();
             btnMenos.Click += (s, e) => Menos();
             btnQuitar.Click += (s, e) => Quitar();
+            var btnNota = Estilo.Chip("Nota", Estilo.Gris);
+            btnNota.Click += (s, e) => CambiarNota();
             btnEnviar.Click += (s, e) => Enviar(true);
             // lo que cocina marco como listo, el mesero lo lleva y lo marca entregado
             btnEntregar = Estilo.Boton("Entregar listos", Estilo.Azul, Icono.Listo);
@@ -176,7 +181,7 @@ namespace RestauranteDelicias.Pantallas
             numPersonas.ValueChanged += (s, e) => GuardarDatos();
             acciones.Controls.AddRange(new Control[]
             {
-                btnMas, btnMenos, btnQuitar, btnEnviar, btnEntregar, btnDescuento, btnMover,
+                btnMas, btnMenos, btnNota, btnQuitar, btnEnviar, btnEntregar, btnDescuento, btnMover,
                 new Label { Text = "Personas", AutoSize = true, ForeColor = Estilo.Suave, Margin = new Padding(16, 12, 2, 0) }, numPersonas
             });
 
@@ -402,7 +407,7 @@ namespace RestauranteDelicias.Pantallas
                 foreach (var l in orden.Activas)
                 {
                     var estado = (l.Estado == "Nuevo" ? "Sin enviar" : l.Estado) + (l.Pagada ? " · pagado" : "");
-                    int i = grid.Rows.Add(l.Cantidad, l.Nombre, l.Nota, estado, Ticket.Q(l.Subtotal));
+                    int i = grid.Rows.Add(l.Cantidad, l.NombreCompleto, l.Nota, estado, Ticket.Q(l.Subtotal));
                     grid.Rows[i].Tag = l;
                     grid.Rows[i].Cells["estado"].Style.ForeColor = ColorEstado(l.Estado);
                     grid.Rows[i].Cells["estado"].Style.SelectionForeColor = ColorEstado(l.Estado);
@@ -460,6 +465,23 @@ namespace RestauranteDelicias.Pantallas
 
             var cantidad = (int)numCantidad.Value;
             var nota = txtNota.Text;
+            var opciones = new List<int>();
+
+            // si el platillo tiene preguntas, como el estilo de los huevos, se escogen antes de agregarlo
+            if (platillo.TieneOpciones)
+            {
+                List<GrupoOpcion> grupos = null;
+                if (!Ui.Seguro(this, () => grupos = OpcionRepo.DePlatillo(platillo.Id))) return;
+                if (grupos.Count > 0)
+                    using (var f = new FrmOpciones(platillo, grupos, cantidad, nota))
+                    {
+                        if (f.ShowDialog(this) != DialogResult.OK) return;
+                        opciones = f.Opciones;
+                        cantidad = f.Cantidad;
+                        nota = f.Nota;
+                    }
+            }
+
             var ordenEnPantalla = orden != null ? orden.Id : (int?)null;
             var personas = (int)numPersonas.Value;
             var conPropina = chkPropina.Checked;
@@ -468,11 +490,11 @@ namespace RestauranteDelicias.Pantallas
                 // la orden se crea hasta que se pide algo, asi no quedan mesas ocupadas sin nada
                 int id;
                 if (mesaId.HasValue)
-                    id = OrdenRepo.AgregarAMesa(mesaId.Value, ordenEnPantalla, platillo.Id, cantidad, nota, personas, conPropina);
+                    id = OrdenRepo.AgregarAMesa(mesaId.Value, ordenEnPantalla, platillo.Id, opciones, cantidad, nota, personas, conPropina);
                 else
                 {
                     id = ordenFija.Value;
-                    OrdenRepo.AgregarAOrden(id, platillo.Id, cantidad, nota);
+                    OrdenRepo.AgregarAOrden(id, platillo.Id, opciones, cantidad, nota);
                 }
                 orden = OrdenRepo.Cargar(id);
             }))
@@ -497,9 +519,26 @@ namespace RestauranteDelicias.Pantallas
             // si ya esta en cocina se pide aparte, asi cocina ve que es algo nuevo
             Ui.Seguro(this, () =>
             {
-                if (l.YaEnCocina || l.Pagada) OrdenRepo.AgregarAOrden(orden.Id, l.PlatilloId, 1, l.Nota);
+                if (l.YaEnCocina || l.Pagada) OrdenRepo.Repetir(l.Id);
                 else OrdenRepo.CambiarCantidad(l.Id, 1);
             });
+            Recargar();
+        }
+
+        // la nota de lo que ya se pidio, mientras no se haya mandado a cocina
+        void CambiarNota()
+        {
+            var l = Seleccionada();
+            if (l == null) return;
+            if (l.YaEnCocina)
+            {
+                MessageBox.Show(this, "Eso ya se mandó a cocina. Para cambiarlo anúlalo y pídelo de nuevo.", "Nota",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var nota = FrmPregunta.Texto(this, "Nota", "Nota para " + l.NombreCompleto + ", por ejemplo sin cebolla o bien cocido.", l.Nota);
+            if (nota == null) return;
+            Ui.Seguro(this, () => OrdenRepo.CambiarNota(l.Id, nota));
             Recargar();
         }
 
@@ -650,7 +689,7 @@ namespace RestauranteDelicias.Pantallas
                     var pagados = f.Platillos.Select(p =>
                     {
                         var l = o.Lineas.First(x => x.Id == p.LineaId);
-                        return new LineaOrden { Nombre = l.Nombre, Cantidad = p.Cantidad, PrecioUnitario = l.PrecioUnitario };
+                        return new LineaOrden { Nombre = l.Nombre, Opciones = l.Opciones, Cantidad = p.Cantidad, PrecioUnitario = l.PrecioUnitario };
                     });
                     Imprimir(Ticket.Comprobante(o, f.Pago, pagados, resultado.Saldo), "Se registró el pago");
                 }

@@ -36,7 +36,6 @@
     <Reference Include="Dapper, Version=2.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Dapper.2.1.35\lib\net461\Dapper.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Security" />
@@ -54,6 +53,7 @@
   <ItemGroup>
     <Compile Include="AvisoException.cs" />
     <Compile Include="Datos\Bitacora.cs" />
+    <Compile Include="Datos\ClienteRepo.cs" />
     <Compile Include="Datos\CocinaRepo.cs" />
     <Compile Include="Datos\Conexion.cs" />
     <Compile Include="Datos\Configuracion.cs" />
@@ -61,6 +61,7 @@
     <Compile Include="Datos\Instalador.cs" />
     <Compile Include="Datos\MenuRepo.cs" />
     <Compile Include="Datos\MesaRepo.cs" />
+    <Compile Include="Datos\OpcionRepo.cs" />
     <Compile Include="Datos\OrdenRepo.cs" />
     <Compile Include="Datos\RespaldoRepo.cs" />
     <Compile Include="Datos\VentaRepo.cs" />
@@ -73,9 +74,6 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmAjustes.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Pantallas\FrmPedido.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmPregunta.cs">
@@ -96,6 +94,9 @@
     <Compile Include="Pantallas\FrmConexion.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Pantallas\FrmMesas.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Pantallas\FrmMenu.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -103,6 +104,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmMotivo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmOpciones.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmOrden.cs">
@@ -116,6 +120,7 @@
     </Compile>
     <Compile Include="Pantallas\Ui.cs" />
     <Compile Include="Servicios\Log.cs" />
+    <Compile Include="Servicios\Nit.cs" />
     <Compile Include="Servicios\Actividad.cs" />
     <Compile Include="Servicios\Ticket.cs" />
     <Compile Include="Datos\TurnoRepo.cs" />
@@ -128,6 +133,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmConfiguracion.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmGrupos.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmLogin.cs">
@@ -190,6 +198,10 @@
     </Content>
     <Content Include="..\BaseDatos\07_cuentas_y_pedidos.sql">
       <Link>BaseDatos\07_cuentas_y_pedidos.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\BaseDatos\08_opciones_y_facturacion.sql">
+      <Link>BaseDatos\08_opciones_y_facturacion.sql</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="App.config" />

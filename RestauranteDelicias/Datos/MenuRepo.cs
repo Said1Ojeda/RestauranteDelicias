@@ -23,6 +23,8 @@ namespace RestauranteDelicias.Datos
             using (var c = Conexion.Abrir())
                 return c.Query<Platillo>(
                     @"SELECT p.Id, p.CategoriaId, cat.Nombre AS CategoriaNombre, cat.Color AS CategoriaColor, p.Nombre, p.Descripcion,
+                             CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.PlatilloGrupo pg JOIN dbo.GrupoOpcion g ON g.Id = pg.GrupoId
+                                                    WHERE pg.PlatilloId = p.Id AND g.Activo = 1) THEN 1 ELSE 0 END AS BIT) AS TieneOpciones,
                              p.Precio, p.Disponible, p.Activo
                       FROM dbo.Platillo p
                       JOIN dbo.Categoria cat ON cat.Id = p.CategoriaId

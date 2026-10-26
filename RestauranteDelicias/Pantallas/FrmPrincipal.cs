@@ -221,8 +221,8 @@ namespace RestauranteDelicias.Pantallas
                 t.Acento = p.Listos > 0 ? Estilo.Azul : p.Pendientes > 0 ? Estilo.Naranja : Estilo.Vino;
                 t.Etiqueta = p.Listos > 0 ? (p.Listos == 1 ? "1 listo" : p.Listos + " listos")
                            : p.Pendientes > 0 ? "Sin enviar"
-                           : p.Tipo == "Domicilio" ? "Domicilio" : "Llevar";
-                t.Detalle = (string.IsNullOrWhiteSpace(p.Telefono) ? "" : p.Telefono + " · ") + Tiempo(minutos);
+                           : "Llevar";
+                t.Detalle = Tiempo(minutos);
                 t.Pie = Ticket.Q(p.Subtotal);
             }
 
@@ -269,11 +269,11 @@ namespace RestauranteDelicias.Pantallas
 
             if (pedidos.Count > 0)
             {
-                var fila = Seccion("Para llevar y a domicilio");
+                var fila = Seccion("Para llevar");
                 foreach (var p in pedidos)
                 {
                     var pedido = p;
-                    var t = NuevaTarjeta(string.IsNullOrWhiteSpace(p.Cliente) ? "Pedido" : p.Cliente);
+                    var t = NuevaTarjeta(Orden.TituloDe(null, p.NumeroLlevar, p.Cliente));
                     t.Click += async (s, e) => await Dialogo(new FrmOrden(pedido.OrdenId));
                     tarjetasDePedidos[pedido.OrdenId] = t;
                     fila.Controls.Add(t);
@@ -330,14 +330,13 @@ namespace RestauranteDelicias.Pantallas
             };
         }
 
+        // para llevar solo pide un nombre opcional para llamarlo, el numero sale solo
         async void NuevoPedido()
         {
-            int ordenId;
-            using (var f = new FrmPedido())
-            {
-                if (f.ShowDialog(this) != DialogResult.OK) return;
-                ordenId = f.OrdenId;
-            }
+            var nombre = FrmPregunta.Texto(this, "Para llevar", "¿A nombre de quién? Es para llamarlo cuando esté listo, lo puedes dejar vacío.", "");
+            if (nombre == null) return;
+            var ordenId = 0;
+            if (!Ui.Seguro(this, () => ordenId = OrdenRepo.CrearLlevar(nombre))) return;
             await Dialogo(new FrmOrden(ordenId));
         }
 
@@ -396,7 +395,7 @@ namespace RestauranteDelicias.Pantallas
                 var caja = Opcion(abierta ? "Caja abierta" : "Abrir caja", Icono.Caja, async () => { await Dialogo(new FrmCaja()); Rearmar(); });
                 if (!abierta) caja.ForeColor = Estilo.Mezclar(Estilo.Naranja, Color.White, 0.2f);
             }
-            if (Sesion.PuedeVerVentas) Opcion("Ventas del día", Icono.Ventas, () => Dialogo(new FrmVentas()));
+            if (Sesion.PuedeVerVentas) Opcion(Sesion.EsAdmin ? "Ventas del día" : "Mis ventas", Icono.Ventas, () => Dialogo(new FrmVentas()));
             if (Sesion.EsAdmin)
             {
                 Opcion("Menú", Icono.Menu, () => Dialogo(new FrmMenu()));
@@ -463,6 +462,7 @@ namespace RestauranteDelicias.Pantallas
             switch (eleccion)
             {
                 case FrmAjustes.USUARIOS: await Dialogo(new FrmUsuarios()); break;
+                case FrmAjustes.MESAS: await Dialogo(new FrmMesas()); tarjetas.Clear(); await Refrescar(); break;
                 case FrmAjustes.BITACORA: await Dialogo(new FrmBitacora()); break;
                 case FrmAjustes.DATOS: await Dialogo(new FrmConfiguracion()); Rearmar(); break;
                 case FrmAjustes.RESPALDO: await Dialogo(new FrmRespaldo()); Rearmar(); break;

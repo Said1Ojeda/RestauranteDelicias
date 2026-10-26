@@ -18,7 +18,7 @@ namespace RestauranteDelicias.Pantallas
 
         public FrmMenu()
         {
-            Estilo.Formulario(this, "Menú", 900, 560);
+            Estilo.Formulario(this, "Menú", 1100, 600);
 
             Estilo.Tabla(grid);
             grid.Dock = DockStyle.Fill;
@@ -66,6 +66,10 @@ namespace RestauranteDelicias.Pantallas
             var btnCerrar = Estilo.Boton("Cerrar", Estilo.Gris);
             var btnNuevo = Estilo.Boton("Nuevo platillo", Estilo.Libre);
             var btnCategoria = Estilo.Boton("Nueva categoría", Estilo.Azul);
+            var btnOpciones = Estilo.Boton("Opciones del platillo", Estilo.Azul);
+            var btnGrupos = Estilo.Boton("Grupos de opciones", Estilo.Gris);
+            btnOpciones.Click += (s, e) => OpcionesDelPlatillo();
+            btnGrupos.Click += (s, e) => { using (var f = new FrmGrupos()) f.ShowDialog(this); };
             btnGuardar.Click += (s, e) => Guardar();
             btnCerrar.Click += (s, e) => Close();
             btnNuevo.Click += (s, e) => Nuevo();
@@ -74,7 +78,7 @@ namespace RestauranteDelicias.Pantallas
             chkInactivos.AutoSize = true;
             chkInactivos.Margin = new Padding(16, 12, 0, 0);
             chkInactivos.CheckedChanged += (s, e) => { if (PreguntarSiHayCambios()) Cargar(); };
-            barra.Controls.AddRange(new Control[] { btnGuardar, btnCerrar, btnNuevo, btnCategoria, chkInactivos });
+            barra.Controls.AddRange(new Control[] { btnGuardar, btnCerrar, btnNuevo, btnCategoria, btnOpciones, btnGrupos, chkInactivos });
 
             var nota = new Label
             {
@@ -138,9 +142,23 @@ namespace RestauranteDelicias.Pantallas
             grid.BeginEdit(true);
         }
 
+        // lo que se le pregunta al platillo al pedirlo, como el estilo de los huevos
+        void OpcionesDelPlatillo()
+        {
+            var p = grid.CurrentRow == null || grid.CurrentRow.Index >= lista.Count ? null : lista[grid.CurrentRow.Index];
+            if (p == null) return;
+            if (p.Id == 0 || cambiados.Contains(p))
+            {
+                MessageBox.Show(this, "Primero guarda los cambios del platillo.", "Menú", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using (var f = new FrmGruposDePlatillo(p))
+                if (f.ShowDialog(this) == DialogResult.OK) Cargar();
+        }
+
         void NuevaCategoria()
         {
-            var nombre = Microsoft.VisualBasic.Interaction.InputBox("Nombre de la categoría", "Nueva categoría", "");
+            var nombre = FrmPregunta.Texto(this, "Nueva categoría", "¿Cómo se llama la categoría? Por ejemplo Desayunos o Licuados.", "");
             if (string.IsNullOrWhiteSpace(nombre)) return;
             var barra = Ui.Confirmar(this, "¿Lo de esta categoría se prepara en la barra de bebidas?\n(Si no, va a cocina)", "Nueva categoría");
             List<Categoria> cats = null;
