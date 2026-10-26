@@ -105,6 +105,7 @@ namespace RestauranteDelicias.Pantallas
             panel.AutoScroll = true;
             panel.BackColor = Fondo;
             panel.Padding = new Padding(14, 4, 14, 14);
+            panel.Resize += (s, e) => AcomodarTarjetas();
 
             lblVacio.Dock = DockStyle.Fill;
             lblVacio.TextAlign = ContentAlignment.MiddleCenter;
@@ -151,6 +152,7 @@ namespace RestauranteDelicias.Pantallas
             {
                 var que = estacion;
                 var comandas = await Task.Run(() => CocinaRepo.Pendientes(que));
+                if (IsDisposed) return;
                 var nueva = string.Join(";", comandas.Select(c => c.Clave + ":" +
                     string.Join(",", c.Lineas.Select(l => l.Id + l.Estado + (l.Anulado ? "x" : "")))));
                 if (nueva != firma)
@@ -173,6 +175,7 @@ namespace RestauranteDelicias.Pantallas
             catch (Exception ex)
             {
                 Log.Error("Refrescar cocina", ex);
+                if (IsDisposed) return;
                 lblCuenta.Text = "Sin conexión, reintentando...";
             }
             finally
@@ -194,9 +197,16 @@ namespace RestauranteDelicias.Pantallas
                 t.Listo += async (s, e) => await Accion(() => CocinaRepo.Listo(comanda.Ids), comanda.Ids);
                 panel.Controls.Add(t);
             }
+            AcomodarTarjetas();
             panel.ResumeLayout();
             lblVacio.Visible = comandas.Count == 0;
             panel.Visible = comandas.Count > 0;
+        }
+
+        void AcomodarTarjetas()
+        {
+            var disponible = panel.ClientSize.Width - panel.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth;
+            if (disponible > 0) Estilo.RepartirTarjetas(panel, disponible, Estilo.Px(280), Estilo.Px(380));
         }
 
         async Task Accion(Action accion, List<int> paraDeshacer)

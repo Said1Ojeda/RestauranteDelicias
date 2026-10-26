@@ -90,6 +90,7 @@ namespace RestauranteDelicias.Pantallas
             panelMenu.AutoScroll = true;
             panelMenu.Padding = new Padding(8, 4, 8, 8);
             panelMenu.BackColor = Estilo.Crema;
+            panelMenu.Resize += (s, e) => AcomodarMenu();
 
             var agregar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 62, Padding = new Padding(12, 12, 12, 8), BackColor = Color.White };
             agregar.Paint += (s, e) => { using (var p = new Pen(Estilo.Borde)) e.Graphics.DrawLine(p, 0, 0, agregar.Width, 0); };
@@ -311,7 +312,14 @@ namespace RestauranteDelicias.Pantallas
                 t.Click += (s, e) => Agregar(platillo);
                 panelMenu.Controls.Add(t);
             }
+            AcomodarMenu();
             panelMenu.ResumeLayout();
+        }
+
+        void AcomodarMenu()
+        {
+            var disponible = panelMenu.ClientSize.Width - panelMenu.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth;
+            if (disponible > 0) Estilo.RepartirTarjetas(panelMenu, disponible, Estilo.Px(150), Estilo.Px(220));
         }
 
         void Recargar(bool mostrarErrores = true)
