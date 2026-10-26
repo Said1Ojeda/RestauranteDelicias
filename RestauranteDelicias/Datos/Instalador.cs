@@ -17,7 +17,8 @@ namespace RestauranteDelicias.Datos
         static readonly Tuple<int, string>[] Migraciones =
         {
             Tuple.Create(2, "04_fase2_usuarios_caja.sql"),
-            Tuple.Create(3, "05_cocina_respaldo.sql")
+            Tuple.Create(3, "05_cocina_respaldo.sql"),
+            Tuple.Create(4, "06_seguridad.sql")
         };
 
         public static int VersionActual

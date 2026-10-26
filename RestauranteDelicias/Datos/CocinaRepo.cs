@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dapper;
 using RestauranteDelicias.Modelos;
+using RestauranteDelicias.Servicios;
 
 namespace RestauranteDelicias.Datos
 {
@@ -31,8 +32,14 @@ namespace RestauranteDelicias.Datos
             return Comanda.Agrupar(lineas);
         }
 
+        static void ExigirCocina()
+        {
+            Sesion.Exigir(Sesion.EsCocina || Sesion.EsAdmin);
+        }
+
         public static void Empezar(IEnumerable<int> ids)
         {
+            ExigirCocina();
             Conexion.ConReintento(() =>
             {
                 using (var c = Conexion.Abrir())
@@ -45,6 +52,7 @@ namespace RestauranteDelicias.Datos
         // si otra pantalla ya lo marco no pasa nada, solo se cambia lo que sigue pendiente
         public static void Listo(IEnumerable<int> ids)
         {
+            ExigirCocina();
             Conexion.ConReintento(() =>
             {
                 using (var c = Conexion.Abrir())
@@ -57,6 +65,7 @@ namespace RestauranteDelicias.Datos
         // por si se marco listo por error, regresa a preparando
         public static void Deshacer(IEnumerable<int> ids)
         {
+            ExigirCocina();
             Conexion.ConReintento(() =>
             {
                 using (var c = Conexion.Abrir())
@@ -69,6 +78,7 @@ namespace RestauranteDelicias.Datos
         // el mesero ya llevo a la mesa lo que estaba listo
         public static int Entregar(int ordenId)
         {
+            Sesion.Exigir(Sesion.PuedeTomarOrdenes);
             return Conexion.ConReintento(() =>
             {
                 using (var c = Conexion.Abrir())

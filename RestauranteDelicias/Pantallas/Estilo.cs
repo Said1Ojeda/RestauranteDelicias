@@ -129,18 +129,50 @@ namespace RestauranteDelicias.Pantallas
         // con windows al 125 o 150 se agranda todo parejo en vez de verse borroso o cortado
         static void Escalar(Form f)
         {
-            if (K < 1.05f) return;
-            var minimo = f.MinimumSize;
-            f.MinimumSize = Size.Empty;
-            f.Scale(new SizeF(K, K));
-            f.MinimumSize = new Size(Px(minimo.Width), Px(minimo.Height));
-            if (f.WindowState != FormWindowState.Normal) return;
+            if (K >= 1.05f)
+            {
+                var minimo = f.MinimumSize;
+                f.MinimumSize = Size.Empty;
+                f.Scale(new SizeF(K, K));
+                f.MinimumSize = new Size(Px(minimo.Width), Px(minimo.Height));
+            }
+            if (f.WindowState == FormWindowState.Normal) AcomodarEnPantalla(f);
+        }
 
+        // en una laptop chica la ventana no puede quedar mas grande que la pantalla, se encoge y se centra
+        static void AcomodarEnPantalla(Form f)
+        {
             var pantalla = Screen.FromControl(f).WorkingArea;
+            var ancho = Math.Min(f.Width, pantalla.Width);
+            var alto = Math.Min(f.Height, pantalla.Height);
+            f.MinimumSize = new Size(Math.Min(f.MinimumSize.Width, ancho), Math.Min(f.MinimumSize.Height, alto));
+            f.Size = new Size(ancho, alto);
+
             var sobre = f.StartPosition == FormStartPosition.CenterParent && f.Owner != null ? f.Owner.Bounds : pantalla;
             var x = sobre.Left + (sobre.Width - f.Width) / 2;
             var y = sobre.Top + (sobre.Height - f.Height) / 2;
-            f.Location = new Point(Math.Max(pantalla.Left, x), Math.Max(pantalla.Top, y));
+            f.Location = new Point(
+                Math.Max(pantalla.Left, Math.Min(x, pantalla.Right - f.Width)),
+                Math.Max(pantalla.Top, Math.Min(y, pantalla.Bottom - f.Height)));
+        }
+
+        // cuantas tarjetas caben por fila y de que ancho, asi llenan la fila en pantallas grandes y caben en las chicas
+        public static int AnchoDeTarjeta(int disponible, int minimo, int maximo, int margen)
+        {
+            var columnas = Math.Max(1, disponible / (minimo + margen));
+            var ancho = disponible / columnas - margen;
+            return Math.Max(Math.Min(minimo, disponible - margen), Math.Min(maximo, ancho));
+        }
+
+        public static void RepartirTarjetas(FlowLayoutPanel fila, int disponible, int minimo, int maximo)
+        {
+            var hijos = fila.Controls.Cast<Control>().ToList();
+            if (hijos.Count == 0) return;
+            var margen = hijos[0].Margin.Horizontal;
+            var ancho = AnchoDeTarjeta(disponible, minimo, maximo, margen);
+            fila.SuspendLayout();
+            foreach (var c in hijos) c.Width = ancho;
+            fila.ResumeLayout();
         }
 
         // los grises son de cancelar o volver, van blancos con borde para que no compitan con el principal

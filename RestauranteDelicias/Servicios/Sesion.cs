@@ -45,5 +45,11 @@ namespace RestauranteDelicias.Servicios
         public static bool PuedeVerVentas { get { return Es(Roles.Admin, Roles.Cajero); } }
         public static bool PuedeTomarOrdenes { get { return Es(Roles.Admin, Roles.Cajero, Roles.Mesero); } }
         public static bool EsCocina { get { return Es(Roles.Cocina); } }
+
+        // la pantalla ya esconde lo que no se puede hacer, esto es la segunda puerta del lado de los datos
+        public static void Exigir(bool permitido)
+        {
+            if (!permitido) throw new AvisoException("No tienes permiso para hacer esto.");
+        }
     }
 }

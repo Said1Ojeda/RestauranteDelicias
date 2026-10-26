@@ -30,6 +30,7 @@ namespace RestauranteDelicias.Datos
 
         public static string Hacer(string carpeta)
         {
+            Servicios.Sesion.Exigir(Servicios.Sesion.EsAdmin);
             carpeta = (carpeta ?? "").Trim().TrimEnd('\\');
             if (carpeta.Length == 0) throw new AvisoException("Escribe la carpeta donde se va a guardar el respaldo.");
 

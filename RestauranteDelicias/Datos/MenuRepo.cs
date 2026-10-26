@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dapper;
 using RestauranteDelicias.Modelos;
+using RestauranteDelicias.Servicios;
 
 namespace RestauranteDelicias.Datos
 {
@@ -31,6 +32,11 @@ namespace RestauranteDelicias.Datos
 
         public static void GuardarPlatillo(Platillo p)
         {
+            Sesion.Exigir(Sesion.EsAdmin);
+            p.Nombre = (p.Nombre ?? "").Trim();
+            p.Descripcion = string.IsNullOrWhiteSpace(p.Descripcion) ? null : p.Descripcion.Trim();
+            if (p.Nombre.Length < 2) throw new AvisoException("Escribe el nombre del platillo.");
+            if (p.Precio < 0 || p.Precio > 100000m) throw new AvisoException("El precio tiene que ser de Q 0 a Q 100,000.");
             using (var c = Conexion.Abrir())
             using (var tx = c.BeginTransaction())
             {
@@ -60,6 +66,10 @@ namespace RestauranteDelicias.Datos
 
         public static int CrearCategoria(string nombre, string estacion)
         {
+            Sesion.Exigir(Sesion.EsAdmin);
+            nombre = (nombre ?? "").Trim();
+            if (nombre.Length < 2 || nombre.Length > 60) throw new AvisoException("El nombre de la categoría tiene que tener de 2 a 60 letras.");
+            if (estacion != "Cocina" && estacion != "Barra") throw new AvisoException("La categoría va a cocina o a barra.");
             using (var c = Conexion.Abrir())
                 return c.ExecuteScalar<int>(
                     @"INSERT INTO dbo.Categoria (Nombre, Orden, Estacion)

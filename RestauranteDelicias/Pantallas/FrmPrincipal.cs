@@ -18,10 +18,12 @@ namespace RestauranteDelicias.Pantallas
 
         readonly FlowLayoutPanel panelMesas = new FlowLayoutPanel();
         readonly Dictionary<int, Tarjeta> tarjetas = new Dictionary<int, Tarjeta>();
+        readonly List<FlowLayoutPanel> filasDeMesas = new List<FlowLayoutPanel>();
         readonly Panel lateral = new Panel();
         readonly FlowLayoutPanel menuLateral = new FlowLayoutPanel();
         readonly Label lblMarca = new Label();
         readonly Label lblUsuario = new Label();
+        readonly Label lblRol = new Label();
         readonly Label lblConexion = new Label();
         readonly Label lblResumen = new Label();
         readonly Label lblFecha = new Label();
@@ -44,17 +46,32 @@ namespace RestauranteDelicias.Pantallas
             lateral.Width = 236;
             lateral.BackColor = Estilo.Lateral;
 
-            var marca = new Panel { Dock = DockStyle.Top, Height = 104, Padding = new Padding(18, 18, 12, 8), BackColor = Estilo.Lateral };
-            lblMarca.Dock = DockStyle.Top;
-            lblMarca.Height = 52;
+            // el alto sale de lo que mide el texto, asi un nombre largo baja de linea en vez de cortarse
+            var marca = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Padding = new Padding(18, 20, 12, 14),
+                BackColor = Estilo.Lateral
+            };
+            lblMarca.AutoSize = true;
             lblMarca.Font = Estilo.Titulo;
             lblMarca.ForeColor = Color.White;
-            lblMarca.AutoEllipsis = true;
-            lblUsuario.Dock = DockStyle.Fill;
-            lblUsuario.Font = Estilo.Chica;
-            lblUsuario.ForeColor = Estilo.LateralTexto;
-            marca.Controls.Add(lblUsuario);
+            lblMarca.Margin = new Padding(0, 0, 0, 10);
+            lblUsuario.AutoSize = true;
+            lblUsuario.Font = Estilo.Negrita;
+            lblUsuario.ForeColor = Color.White;
+            lblUsuario.Margin = new Padding(0);
+            lblRol.AutoSize = true;
+            lblRol.Font = Estilo.Chica;
+            lblRol.ForeColor = Estilo.LateralTexto;
+            lblRol.Margin = new Padding(0, 2, 0, 0);
             marca.Controls.Add(lblMarca);
+            marca.Controls.Add(lblUsuario);
+            marca.Controls.Add(lblRol);
 
             menuLateral.Dock = DockStyle.Fill;
             menuLateral.FlowDirection = FlowDirection.TopDown;
@@ -86,7 +103,8 @@ namespace RestauranteDelicias.Pantallas
             lblFecha.ForeColor = Estilo.Suave;
             lblFecha.BackColor = Color.White;
             lblResumen.Dock = DockStyle.Right;
-            lblResumen.Width = 520;
+            lblResumen.AutoSize = true;
+            lblResumen.Padding = new Padding(16, 0, 0, 0);
             lblResumen.TextAlign = ContentAlignment.MiddleRight;
             lblResumen.Font = Estilo.Negrita;
             lblResumen.ForeColor = Estilo.Suave;
@@ -107,10 +125,14 @@ namespace RestauranteDelicias.Pantallas
             cabeza.Controls.Add(lblResumen);
             cabeza.Controls.Add(zonaAviso);
 
+            // cada area va en su propia fila que se acomoda al ancho de la pantalla
             panelMesas.Dock = DockStyle.Fill;
-            panelMesas.Padding = new Padding(18, 10, 18, 18);
+            panelMesas.Padding = new Padding(18, 6, 18, 18);
             panelMesas.AutoScroll = true;
+            panelMesas.FlowDirection = FlowDirection.TopDown;
+            panelMesas.WrapContents = false;
             panelMesas.BackColor = Estilo.Crema;
+            panelMesas.Resize += (s, e) => AcomodarMesas();
 
             Controls.Add(panelMesas);
             Controls.Add(cabeza);
@@ -140,6 +162,7 @@ namespace RestauranteDelicias.Pantallas
             try
             {
                 var nuevas = await Task.Run(() => MesaRepo.Estado());
+                if (IsDisposed) return;
                 mesas = nuevas;
                 Pintar();
                 lblConexion.Text = "●  En línea";
@@ -149,6 +172,7 @@ namespace RestauranteDelicias.Pantallas
             {
                 // el timer vuelve a intentar solo, no se llena la pantalla de mensajes
                 Log.Error("Refrescar mesas", ex);
+                if (IsDisposed) return;
                 lblConexion.Text = "●  Sin conexión, reintentando...";
                 lblConexion.ForeColor = Estilo.Mezclar(Estilo.Ocupada, Color.White, 0.2f);
             }
@@ -156,7 +180,7 @@ namespace RestauranteDelicias.Pantallas
             {
                 refrescando = false;
             }
-            lblFecha.Text = Fecha();
+            if (!IsDisposed) lblFecha.Text = Fecha();
         }
 
         static string Fecha()
@@ -216,38 +240,58 @@ namespace RestauranteDelicias.Pantallas
             panelMesas.SuspendLayout();
             Estilo.Vaciar(panelMesas);
             tarjetas.Clear();
+            filasDeMesas.Clear();
 
             foreach (var area in mesas.GroupBy(m => m.AreaNombre))
             {
-                var titulo = new Label
+                panelMesas.Controls.Add(new Label
                 {
                     Text = area.Key.ToUpper(),
                     Font = Estilo.Negrita,
                     ForeColor = Estilo.Suave,
                     AutoSize = true,
-                    Margin = new Padding(Estilo.Px(8), Estilo.Px(16), Estilo.Px(8), Estilo.Px(4))
-                };
-                panelMesas.Controls.Add(titulo);
-                panelMesas.SetFlowBreak(titulo, true);
+                    Margin = new Padding(Estilo.Px(8), Estilo.Px(18), Estilo.Px(8), Estilo.Px(2))
+                });
 
-                Tarjeta ultima = null;
+                var fila = new FlowLayoutPanel
+                {
+                    AutoSize = true,
+                    AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                    WrapContents = true,
+                    Margin = new Padding(0),
+                    BackColor = Estilo.Crema
+                };
                 foreach (var m in area)
                 {
                     var mesa = m;
                     var t = new Tarjeta
                     {
                         Titulo = "Mesa " + mesa.Numero,
-                        Size = new Size(Estilo.Px(196), Estilo.Px(124)),
+                        Size = new Size(Estilo.Px(200), Estilo.Px(124)),
                         Margin = new Padding(Estilo.Px(7))
                     };
                     t.Click += (s, e) => AbrirMesa(mesa.Id, mesa.Numero);
                     tarjetas[mesa.Id] = t;
-                    panelMesas.Controls.Add(t);
-                    ultima = t;
+                    fila.Controls.Add(t);
                 }
-                if (ultima != null) panelMesas.SetFlowBreak(ultima, true);
+                filasDeMesas.Add(fila);
+                panelMesas.Controls.Add(fila);
             }
+            AcomodarMesas();
             panelMesas.ResumeLayout();
+        }
+
+        // el ancho que queda se reparte entre las tarjetas, en pantalla grande caben mas por fila y en chica bajan
+        void AcomodarMesas()
+        {
+            var disponible = panelMesas.ClientSize.Width - panelMesas.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth;
+            if (disponible <= 0) return;
+            foreach (var fila in filasDeMesas)
+            {
+                fila.MaximumSize = new Size(disponible, 0);
+                fila.MinimumSize = new Size(disponible, 0);
+                Estilo.RepartirTarjetas(fila, disponible, Estilo.Px(190), Estilo.Px(260));
+            }
         }
 
         static string Tiempo(int minutos)
@@ -309,8 +353,10 @@ namespace RestauranteDelicias.Pantallas
             zonaAviso.Visible = Sesion.EsAdmin && FrmRespaldo.Pendiente;
             Text = Configuracion.Nombre;
             lblMarca.Text = Configuracion.Nombre;
-            lblUsuario.Text = Sesion.Nombre + "\n" + (Sesion.Usuario != null ? Sesion.Usuario.Rol : "") +
-                              (Sesion.PuedeCobrar ? (Sesion.TurnoId.HasValue ? " · caja abierta" : " · sin caja") : "");
+            lblMarca.MaximumSize = lblUsuario.MaximumSize = lblRol.MaximumSize = new Size(lateral.Width - Estilo.Px(32), 0);
+            lblUsuario.Text = Sesion.Nombre;
+            lblRol.Text = (Sesion.Usuario != null ? Sesion.Usuario.Rol : "") +
+                          (Sesion.PuedeCobrar ? (Sesion.TurnoId.HasValue ? " · caja abierta" : " · sin caja") : "");
         }
 
         int AnchoOpcion

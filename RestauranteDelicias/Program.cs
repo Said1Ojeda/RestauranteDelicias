@@ -85,6 +85,11 @@ namespace RestauranteDelicias
                 Sesion.OtroUsuario = false;
                 if (!FrmLogin.IniciarSesion(null)) return;
                 Actividad.Tocar();
+
+                // lo que otro admin cambio en datos del restaurante desde otra compu se toma al entrar
+                try { Configuracion.Cargar(); }
+                catch (Exception ex) { Log.Error("Recargar configuracion", ex); }
+
                 Application.Run(Sesion.EsCocina ? (Form)new FrmCocina(false) : new FrmPrincipal());
                 if (!Sesion.OtroUsuario) return;
             }

@@ -9,7 +9,13 @@ namespace RestauranteDelicias.Datos
     {
         public static string Linea(params object[] campos)
         {
-            return string.Join(",", campos.Select(c => Escapar(c == null ? "" : c.ToString())));
+            return string.Join(",", campos.Select(c => Escapar(c is string ? SinFormula((string)c) : c == null ? "" : c.ToString())));
+        }
+
+        // un texto que empieza con = + - @ excel lo corre como formula al abrir el archivo
+        static string SinFormula(string texto)
+        {
+            return texto.Length > 0 && "=+-@\t\r".IndexOf(texto[0]) >= 0 ? "'" + texto : texto;
         }
 
         static string Escapar(string valor)
