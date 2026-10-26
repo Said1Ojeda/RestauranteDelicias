@@ -326,8 +326,9 @@ namespace RestauranteDelicias.Pantallas
             }
 
             int m = Estilo.Px(16);
-            var titulo = comanda.MesaNumero.HasValue ? "Mesa " + comanda.MesaNumero : "Para llevar";
-            TextRenderer.DrawText(g, titulo, Estilo.Titulo, new Point(m, Estilo.Px(16)), FrmCocina.Claro, TextFormatFlags.NoPadding);
+            var anchoTitulo = Width - m * 2 - Estilo.Px(90);
+            TextRenderer.DrawText(g, comanda.Titulo, Estilo.Titulo, new Rectangle(m, Estilo.Px(16), anchoTitulo, Estilo.Titulo.Height + Estilo.Px(4)), FrmCocina.Claro,
+                TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
             var quien = (comanda.Mesero ?? "") + "  ·  " + comanda.Enviado.ToString("HH:mm");
             TextRenderer.DrawText(g, quien, Estilo.Chica, new Point(m, Estilo.Px(44)), FrmCocina.Apagado, TextFormatFlags.NoPadding);
 

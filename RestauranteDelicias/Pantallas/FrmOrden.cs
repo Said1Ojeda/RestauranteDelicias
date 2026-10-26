@@ -11,8 +11,13 @@ namespace RestauranteDelicias.Pantallas
 {
     public class FrmOrden : Form
     {
-        readonly int mesaId;
-        readonly int mesaNumero;
+        // una orden de mesa se busca por la mesa, un pedido para llevar por su numero de orden
+        int? mesaId;
+        int? mesaNumero;
+        readonly int? ordenFija;
+        Label lblEncabezado;
+        readonly Label lblPagado = new Label();
+        readonly Label lblPagadoTexto = new Label();
         Orden orden;
         List<Platillo> menu = new List<Platillo>();
         string categoria = "Todo";
@@ -39,11 +44,16 @@ namespace RestauranteDelicias.Pantallas
         readonly Boton btnEntregar;
         readonly Timer timer = new Timer();
 
-        public FrmOrden(int mesaId, int mesaNumero)
+        public FrmOrden(int mesaId, int mesaNumero) : this(mesaId, mesaNumero, null) { }
+
+        public FrmOrden(int ordenId) : this(null, null, ordenId) { }
+
+        FrmOrden(int? mesaId, int? mesaNumero, int? ordenFija)
         {
             this.mesaId = mesaId;
             this.mesaNumero = mesaNumero;
-            Estilo.Formulario(this, "Mesa " + mesaNumero, 1100, 680);
+            this.ordenFija = ordenFija;
+            Estilo.Formulario(this, TituloActual, 1100, 680);
             WindowState = FormWindowState.Maximized;
 
             var division = new SplitContainer { Dock = DockStyle.Fill, BackColor = Estilo.Borde, SplitterWidth = 1 };
@@ -155,6 +165,9 @@ namespace RestauranteDelicias.Pantallas
             btnEntregar = Estilo.Boton("Entregar listos", Estilo.Azul, Icono.Listo);
             btnEntregar.Visible = false;
             btnEntregar.Click += (s, e) => Entregar();
+            var btnMover = Estilo.Boton("Mover o juntar", Estilo.Gris, Icono.Mesas);
+            btnMover.Visible = mesaId.HasValue;
+            btnMover.Click += (s, e) => MoverOJuntar();
 
             numPersonas.Minimum = 1;
             numPersonas.Maximum = 50;
@@ -163,14 +176,14 @@ namespace RestauranteDelicias.Pantallas
             numPersonas.ValueChanged += (s, e) => GuardarDatos();
             acciones.Controls.AddRange(new Control[]
             {
-                btnMas, btnMenos, btnQuitar, btnEnviar, btnEntregar, btnDescuento,
+                btnMas, btnMenos, btnQuitar, btnEnviar, btnEntregar, btnDescuento, btnMover,
                 new Label { Text = "Personas", AutoSize = true, ForeColor = Estilo.Suave, Margin = new Padding(16, 12, 2, 0) }, numPersonas
             });
 
             var totales = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 252,
+                Height = 284,
                 ColumnCount = 2,
                 Padding = new Padding(20, 14, 20, 12),
                 BackColor = Estilo.Crema
@@ -205,6 +218,12 @@ namespace RestauranteDelicias.Pantallas
             totales.Controls.Add(lblTotal, 1, 3);
             totales.Controls.Add(new Label { Text = "IVA incluido", AutoSize = true, ForeColor = Estilo.Suave, Font = Estilo.Chica }, 0, 4);
             totales.Controls.Add(lblIva, 1, 4);
+            lblPagadoTexto.AutoSize = lblPagado.AutoSize = true;
+            lblPagadoTexto.ForeColor = lblPagado.ForeColor = Estilo.Libre;
+            lblPagadoTexto.Font = lblPagado.Font = Estilo.Negrita;
+            lblPagado.Anchor = AnchorStyles.Right;
+            totales.Controls.Add(lblPagadoTexto, 0, 5);
+            totales.Controls.Add(lblPagado, 1, 5);
 
             var botonesFin = new FlowLayoutPanel { AutoSize = true, Anchor = AnchorStyles.Right, FlowDirection = FlowDirection.RightToLeft, Margin = new Padding(0, 8, 0, 0) };
             btnCobrar = Estilo.Boton("Cobrar   F9", Estilo.Vino, Icono.Tarjeta);
@@ -218,7 +237,7 @@ namespace RestauranteDelicias.Pantallas
             btnCobrar.Click += (s, e) => Cobrar();
             btnVolver.Click += (s, e) => Close();
             botonesFin.Controls.AddRange(new Control[] { btnCobrar, btnVolver });
-            totales.Controls.Add(botonesFin, 0, 5);
+            totales.Controls.Add(botonesFin, 0, 6);
             totales.SetColumnSpan(botonesFin, 2);
 
             division.Panel2.Controls.Add(grid);
@@ -226,7 +245,9 @@ namespace RestauranteDelicias.Pantallas
             division.Panel2.Controls.Add(totales);
 
             Controls.Add(division);
-            Controls.Add(Estilo.Encabezado("Mesa " + mesaNumero));
+            var cabeza = Estilo.Encabezado(TituloActual);
+            lblEncabezado = (Label)cabeza.Controls[0];
+            Controls.Add(cabeza);
 
             // si otro mesero le agrega algo a esta mesa desde otra compu, aca aparece solo
             timer.Interval = 5000;
@@ -258,9 +279,16 @@ namespace RestauranteDelicias.Pantallas
             if (!Ui.Seguro(this, () =>
             {
                 menu = MenuRepo.Platillos();
-                orden = OrdenRepo.AbiertaDeMesa(mesaId);
+                orden = mesaId.HasValue ? OrdenRepo.AbiertaDeMesa(mesaId.Value) : OrdenRepo.Cargar(ordenFija.Value);
             }))
             {
+                Close();
+                return;
+            }
+            if (ordenFija.HasValue && (orden == null || orden.Estado != "Abierta"))
+            {
+                MessageBox.Show(this, "Este pedido ya fue cobrado o cerrado desde otra caja.", TituloActual, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                orden = null;
                 Close();
                 return;
             }
@@ -338,7 +366,7 @@ namespace RestauranteDelicias.Pantallas
             if (orden == null || orden.Estado != "Abierta")
             {
                 timer.Stop();
-                MessageBox.Show(this, "Esta mesa ya fue cobrada o cerrada desde otra caja.", "Mesa " + mesaNumero,
+                MessageBox.Show(this, "Esta cuenta ya fue cobrada o cerrada desde otra caja.", TituloActual,
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 orden = null;
                 Cobrada = true;
@@ -348,9 +376,24 @@ namespace RestauranteDelicias.Pantallas
             Pintar();
         }
 
+        string TituloActual
+        {
+            get
+            {
+                if (orden != null) return orden.Titulo;
+                return mesaNumero.HasValue ? "Mesa " + mesaNumero : "Pedido";
+            }
+        }
+
         void Pintar()
         {
             cargando = true;
+            // si la movieron de mesa desde otra compu, esta pantalla sigue a la orden
+            if (orden != null && orden.MesaId.HasValue)
+            {
+                mesaId = orden.MesaId;
+                mesaNumero = orden.MesaNumero;
+            }
             var seleccion = Seleccionada();
 
             grid.Rows.Clear();
@@ -358,7 +401,8 @@ namespace RestauranteDelicias.Pantallas
             {
                 foreach (var l in orden.Activas)
                 {
-                    int i = grid.Rows.Add(l.Cantidad, l.Nombre, l.Nota, l.Estado == "Nuevo" ? "Sin enviar" : l.Estado, Ticket.Q(l.Subtotal));
+                    var estado = (l.Estado == "Nuevo" ? "Sin enviar" : l.Estado) + (l.Pagada ? " · pagado" : "");
+                    int i = grid.Rows.Add(l.Cantidad, l.Nombre, l.Nota, estado, Ticket.Q(l.Subtotal));
                     grid.Rows[i].Tag = l;
                     grid.Rows[i].Cells["estado"].Style.ForeColor = ColorEstado(l.Estado);
                     grid.Rows[i].Cells["estado"].Style.SelectionForeColor = ColorEstado(l.Estado);
@@ -375,7 +419,12 @@ namespace RestauranteDelicias.Pantallas
             lblTotal.Text = Ticket.Q(o.Total);
             lblDescuento.Text = o.Descuento > 0 ? "-" + Ticket.Q(o.Descuento) : "";
             lblDescuentoTexto.Text = o.Descuento > 0 ? "Descuento" + (string.IsNullOrEmpty(o.DescuentoMotivo) ? "" : " · " + o.DescuentoMotivo) : "";
-            Text = "Mesa " + mesaNumero + (orden != null && orden.Mesero != null ? " · atiende " + orden.Mesero : "");
+            Text = TituloActual + (orden != null && orden.Mesero != null ? " · atiende " + orden.Mesero : "");
+            if (lblEncabezado != null) lblEncabezado.Text = Text;
+            var pagado = orden != null ? orden.Pagado : 0m;
+            lblPagadoTexto.Text = pagado > 0 ? "Ya pagaron " + Ticket.Q(pagado) : "";
+            lblPagado.Text = pagado > 0 ? "Saldo " + Ticket.Q(o.Saldo) : "";
+            btnCobrar.Text = pagado > 0 ? "Cobrar saldo   F9" : "Cobrar   F9";
             btnCobrar.Enabled = orden != null && !orden.Vacia;
             btnEnviar.Enabled = orden != null && orden.SinEnviar > 0;
             var listos = orden == null ? 0 : orden.Activas.Count(l => l.Estado == "Listo");
@@ -417,7 +466,14 @@ namespace RestauranteDelicias.Pantallas
             if (Ui.Seguro(this, () =>
             {
                 // la orden se crea hasta que se pide algo, asi no quedan mesas ocupadas sin nada
-                var id = OrdenRepo.AgregarAMesa(mesaId, ordenEnPantalla, platillo.Id, cantidad, nota, personas, conPropina);
+                int id;
+                if (mesaId.HasValue)
+                    id = OrdenRepo.AgregarAMesa(mesaId.Value, ordenEnPantalla, platillo.Id, cantidad, nota, personas, conPropina);
+                else
+                {
+                    id = ordenFija.Value;
+                    OrdenRepo.AgregarAOrden(id, platillo.Id, cantidad, nota);
+                }
                 orden = OrdenRepo.Cargar(id);
             }))
             {
@@ -441,7 +497,7 @@ namespace RestauranteDelicias.Pantallas
             // si ya esta en cocina se pide aparte, asi cocina ve que es algo nuevo
             Ui.Seguro(this, () =>
             {
-                if (l.YaEnCocina) OrdenRepo.AgregarAMesa(mesaId, orden.Id, l.PlatilloId, 1, l.Nota, orden.Personas, orden.ConPropina);
+                if (l.YaEnCocina || l.Pagada) OrdenRepo.AgregarAOrden(orden.Id, l.PlatilloId, 1, l.Nota);
                 else OrdenRepo.CambiarCantidad(l.Id, 1);
             });
             Recargar();
@@ -557,43 +613,84 @@ namespace RestauranteDelicias.Pantallas
                     "Hay " + orden.SinEnviar + " platillo(s) que no se han mandado a cocina.\n¿Mandarlos antes de cobrar?", "Cobrar"))
                 Enviar(false);
 
-            // se vuelve a leer justo antes de cobrar, para cobrar lo que de verdad tiene la mesa
-            Recargar();
-            if (orden == null || orden.Vacia) return;
-
-            using (var f = new FrmCobro(orden.Total))
+            // se cobra pago por pago hasta que el saldo llegue a cero o el cajero cancele
+            // cada vuelta lee la cuenta de nuevo, asi se cobra lo que de verdad tiene la mesa
+            while (true)
             {
-                if (f.ShowDialog(this) != DialogResult.OK) return;
+                Recargar();
+                if (orden == null || orden.Vacia || orden.Saldo <= 0) return;
 
-                int ticket = 0;
-                List<Pago> pagos = null;
-                var o = orden;
-                if (!Ui.Seguro(this, () =>
-                {
-                    ticket = OrdenRepo.Cobrar(o.Id, o.Version, f.Pago);
-                    pagos = OrdenRepo.Pagos(o.Id);
-                }))
-                {
-                    Recargar();
-                    return;
-                }
+                List<Pago> previos = null;
+                if (!Ui.Seguro(this, () => previos = OrdenRepo.Pagos(orden.Id))) return;
 
-                Cobrada = true;
-                timer.Stop();
-                try
+                using (var f = new FrmCobro(orden, previos.Count))
                 {
-                    Ticket.Imprimir(Ticket.Texto(o, ticket, DateTime.Now, pagos), this);
-                }
-                catch (Exception ex)
-                {
-                    // ya quedo cobrada, si la impresora falla se puede reimprimir desde ventas del dia
-                    Log.Error("Imprimir ticket", ex);
-                    MessageBox.Show(this, "Se cobró, pero no se pudo imprimir el ticket. Puedes reimprimirlo desde Ventas del día.",
-                        "Ticket", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (f.ShowDialog(this) != DialogResult.OK) return;
+
+                    var o = orden;
+                    ResultadoPago resultado = null;
+                    List<Pago> pagos = null;
+                    if (!Ui.Seguro(this, () =>
+                    {
+                        resultado = OrdenRepo.RegistrarPago(o.Id, f.SaldoVisto, f.Pago, f.Platillos);
+                        pagos = OrdenRepo.Pagos(o.Id);
+                    }))
+                        continue;
+
+                    if (resultado.Cerrada)
+                    {
+                        Cobrada = true;
+                        timer.Stop();
+                        Imprimir(Ticket.Texto(o, resultado.NumeroTicket.Value, DateTime.Now, pagos), "Se cobró");
+                        orden = null;
+                        Close();
+                        return;
+                    }
+
+                    var pagados = f.Platillos.Select(p =>
+                    {
+                        var l = o.Lineas.First(x => x.Id == p.LineaId);
+                        return new LineaOrden { Nombre = l.Nombre, Cantidad = p.Cantidad, PrecioUnitario = l.PrecioUnitario };
+                    });
+                    Imprimir(Ticket.Comprobante(o, f.Pago, pagados, resultado.Saldo), "Se registró el pago");
                 }
             }
-            orden = null;
-            Close();
+        }
+
+        // si la impresora falla el pago ya quedo guardado, se puede reimprimir el ticket desde ventas del dia
+        void Imprimir(string texto, string queSeHizo)
+        {
+            try
+            {
+                Ticket.Imprimir(texto, this);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Imprimir ticket", ex);
+                MessageBox.Show(this, queSeHizo + ", pero no se pudo imprimir. Puedes reimprimirlo desde Ventas del día.",
+                    "Ticket", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        // a una mesa libre se mueve, a una ocupada se junta y esta mesa queda libre
+        void MoverOJuntar()
+        {
+            if (orden == null || !mesaId.HasValue) return;
+            using (var f = new FrmMover(orden))
+            {
+                if (f.ShowDialog(this) != DialogResult.OK) return;
+                if (f.Juntada)
+                {
+                    timer.Stop();
+                    orden = null;
+                    Cobrada = true;
+                    Close();
+                    return;
+                }
+                mesaId = f.MesaDestinoId;
+                mesaNumero = f.MesaDestinoNumero;
+            }
+            Recargar();
         }
 
         void AlCerrar(object sender, FormClosingEventArgs e)
@@ -604,7 +701,7 @@ namespace RestauranteDelicias.Pantallas
             {
                 var r = MessageBox.Show(this,
                     "Hay " + orden.SinEnviar + " platillo(s) sin mandar a cocina.\n¿Mandarlos ahora?",
-                    "Mesa " + mesaNumero, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                    TituloActual, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                 if (r == DialogResult.Cancel) { e.Cancel = true; return; }
                 if (r == DialogResult.Yes)
                 {
