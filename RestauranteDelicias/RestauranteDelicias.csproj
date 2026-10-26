@@ -178,6 +178,10 @@
       <Link>BaseDatos\05_cocina_respaldo.sql</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\BaseDatos\06_seguridad.sql">
+      <Link>BaseDatos\06_seguridad.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

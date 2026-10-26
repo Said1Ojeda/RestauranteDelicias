@@ -24,6 +24,12 @@ namespace RestauranteDelicias.Datos
                 Registrar(c, null, accion, detalle);
         }
 
+        // un % o un _ escrito en el buscador se busca tal cual, no como comodin
+        static string ComoTextoLiteral(string texto)
+        {
+            return texto.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Replace("[", "\\[");
+        }
+
         public static List<EntradaBitacora> Listar(DateTime desde, DateTime hasta, string texto)
         {
             texto = (texto ?? "").Trim();
@@ -33,9 +39,9 @@ namespace RestauranteDelicias.Datos
                       FROM dbo.Bitacora b
                       LEFT JOIN dbo.Usuario u ON u.Id = b.UsuarioId
                       WHERE b.Fecha >= @desde AND b.Fecha < @hasta
-                        AND (@texto = N'' OR b.Accion LIKE @patron OR b.Detalle LIKE @patron OR u.Nombre LIKE @patron)
+                        AND (@texto = N'' OR b.Accion LIKE @patron ESCAPE N'\' OR b.Detalle LIKE @patron ESCAPE N'\' OR u.Nombre LIKE @patron ESCAPE N'\')
                       ORDER BY b.Fecha DESC, b.Id DESC",
-                    new { desde = desde.Date, hasta = hasta.Date.AddDays(1), texto, patron = "%" + texto + "%" }).ToList();
+                    new { desde = desde.Date, hasta = hasta.Date.AddDays(1), texto, patron = "%" + ComoTextoLiteral(texto) + "%" }).ToList();
         }
     }
 }

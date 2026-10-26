@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using Dapper;
+using RestauranteDelicias.Servicios;
 
 namespace RestauranteDelicias.Datos
 {
@@ -19,6 +20,7 @@ namespace RestauranteDelicias.Datos
 
         public static void Guardar(IDictionary<string, string> cambios)
         {
+            Sesion.Exigir(Sesion.EsAdmin);
             using (var c = Conexion.Abrir())
             using (var tx = c.BeginTransaction())
             {

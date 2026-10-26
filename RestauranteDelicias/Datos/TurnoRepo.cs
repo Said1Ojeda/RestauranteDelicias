@@ -27,6 +27,8 @@ namespace RestauranteDelicias.Datos
 
         public static int Abrir(int usuarioId, decimal montoInicial)
         {
+            Sesion.Exigir(Sesion.PuedeCobrar && usuarioId == Sesion.Id);
+            if (montoInicial < 0 || montoInicial > 100000m) throw new AvisoException("El fondo inicial tiene que ser de Q 0 a Q 100,000.");
             try
             {
                 using (var c = Conexion.Abrir())
@@ -64,14 +66,26 @@ namespace RestauranteDelicias.Datos
                     new { turnoId });
         }
 
+        // el candado de la caja espera a que termine cualquier cobro que este en camino, asi el esperado cuadra
         public static void Cerrar(int turnoId, decimal contado, string notas)
         {
+            Sesion.Exigir(Sesion.PuedeCobrar);
+            if (contado < 0) throw new AvisoException("El efectivo contado no puede ser negativo.");
+            notas = (notas ?? "").Trim();
+            if (notas.Length > 300) notas = notas.Substring(0, 300);
+
             using (var c = Conexion.Abrir())
             using (var tx = c.BeginTransaction())
             {
+                var dueno = c.ExecuteScalar<int?>(
+                    "SELECT UsuarioId FROM dbo.Turno WITH (UPDLOCK, ROWLOCK) WHERE Id = @turnoId AND Cierre IS NULL",
+                    new { turnoId }, tx);
+                if (!dueno.HasValue) throw new AvisoException("Esta caja ya estaba cerrada.");
+                Sesion.Exigir(dueno == Sesion.Id || Sesion.EsAdmin);
+
                 var esperado = c.ExecuteScalar<decimal>(
                     @"SELECT t.MontoInicial + ISNULL((SELECT SUM(Monto) FROM dbo.Pago WHERE TurnoId = t.Id AND Forma = N'Efectivo'), 0)
-                      FROM dbo.Turno t WITH (UPDLOCK) WHERE t.Id = @turnoId AND t.Cierre IS NULL",
+                      FROM dbo.Turno t WHERE t.Id = @turnoId",
                     new { turnoId }, tx);
 
                 var filas = c.Execute(

@@ -403,19 +403,25 @@ namespace RestauranteDelicias.Pantallas
 
             var cantidad = (int)numCantidad.Value;
             var nota = txtNota.Text;
+            var ordenEnPantalla = orden != null ? orden.Id : (int?)null;
+            var personas = (int)numPersonas.Value;
+            var conPropina = chkPropina.Checked;
             if (Ui.Seguro(this, () =>
             {
                 // la orden se crea hasta que se pide algo, asi no quedan mesas ocupadas sin nada
-                var id = orden != null ? orden.Id : OrdenRepo.ObtenerOCrear(mesaId);
-                if (orden == null && (!chkPropina.Checked || numPersonas.Value > 1))
-                    OrdenRepo.CambiarDatos(id, (int)numPersonas.Value, chkPropina.Checked);
-                OrdenRepo.Agregar(id, platillo.Id, cantidad, nota);
+                var id = OrdenRepo.AgregarAMesa(mesaId, ordenEnPantalla, platillo.Id, cantidad, nota, personas, conPropina);
                 orden = OrdenRepo.Cargar(id);
             }))
             {
                 // se limpia para que la nota no se le pegue al siguiente platillo
                 numCantidad.Value = 1;
                 txtNota.Clear();
+            }
+            else if (orden != null)
+            {
+                // si fallo porque la cobraron en otra caja, recargar avisa y cierra la mesa
+                Recargar(false);
+                return;
             }
             Pintar();
         }
@@ -427,7 +433,7 @@ namespace RestauranteDelicias.Pantallas
             // si ya esta en cocina se pide aparte, asi cocina ve que es algo nuevo
             Ui.Seguro(this, () =>
             {
-                if (l.YaEnCocina) OrdenRepo.Agregar(orden.Id, l.PlatilloId, 1, l.Nota);
+                if (l.YaEnCocina) OrdenRepo.AgregarAMesa(mesaId, orden.Id, l.PlatilloId, 1, l.Nota, orden.Personas, orden.ConPropina);
                 else OrdenRepo.CambiarCantidad(l.Id, 1);
             });
             Recargar();

@@ -160,10 +160,34 @@ RestauranteDelicias/
 - **Lecturas sin bloqueo** (`READ_COMMITTED_SNAPSHOT`). Refrescar las mesas en 10 compus no traba a quien está guardando.
 - **Una sola orden abierta por mesa**, garantizado por un índice único. Si dos meseros abren la misma mesa al mismo tiempo, los dos terminan en la misma orden.
 - **Cobro en una transacción**: el pago, el número de ticket y el cierre se guardan juntos, o no se guarda nada.
-- **Control de versión** (`rowversion`) en la orden. Si alguien la cambia mientras otro cobra, el cobro se detiene y avisa.
+- **Control de versión** (`rowversion`) en la orden, y el total se compara otra vez al cobrar. Si alguien la cambia mientras otro cobra, el cobro se detiene y avisa.
+- **Candado de la orden**: agregar, quitar, anular o descontar toman el mismo candado que el cobro. Un platillo nunca se cuela en una cuenta que se está cobrando en otra caja.
+- **Candado de la caja**: no se puede cerrar una caja mientras se está cobrando en ella, así el corte siempre cuadra.
 - Si dos cajas chocan guardando al mismo tiempo (deadlock), se reintenta solo.
 - Los precios se **copian** al pedir. Cambiar el menú no mueve las cuentas abiertas ni los reportes viejos.
 - Los totales se **congelan** al cobrar.
+
+### Seguridad
+
+- Contraseñas y PIN con PBKDF2 y sal. Los PIN se revisan en paralelo, así entrar es rápido aunque haya muchos usuarios.
+- Los intentos fallidos se guardan en la base por compu. Después de 5 hay que esperar un minuto, y cada fallo de más dobla la espera, hasta 15 minutos. Cerrar el programa no lo reinicia.
+- Los permisos se revisan dos veces: la pantalla esconde lo que no te toca y la capa de datos lo vuelve a revisar antes de guardar.
+- Quien autoriza un descuento o una anulación se valida contra la base, tiene que ser un admin activo.
+- Al exportar a CSV, un texto que empieza con `=`, `+`, `-` o `@` se guarda como texto, para que Excel no lo corra como fórmula.
+- Todas las consultas van con parámetros.
+
+**Recomendado en producción:** las cajas no deberían entrar a SQL Server con un usuario administrador. Crea un usuario solo para el programa:
+
+```sql
+CREATE LOGIN restaurante_app WITH PASSWORD = 'una-clave-larga-y-unica';
+USE RestauranteDelicias;
+CREATE USER restaurante_app FOR LOGIN restaurante_app;
+ALTER ROLE db_datareader ADD MEMBER restaurante_app;
+ALTER ROLE db_datawriter ADD MEMBER restaurante_app;
+GRANT UPDATE ON dbo.SecTicket TO restaurante_app;
+```
+
+Las actualizaciones de la base y los respaldos se hacen desde la compu del admin, con un usuario que sí tenga permisos.
 
 ### Errores
 

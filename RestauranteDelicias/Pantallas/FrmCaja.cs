@@ -36,6 +36,8 @@ namespace RestauranteDelicias.Pantallas
                 Close();
                 return;
             }
+            // si la cerraron desde otra compu esta sesion se entera aca
+            Sesion.TurnoId = turno != null ? turno.Id : (int?)null;
 
             Controls.Clear();
             numMonto.DecimalPlaces = 2;

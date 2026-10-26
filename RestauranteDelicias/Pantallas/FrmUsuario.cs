@@ -131,11 +131,7 @@ namespace RestauranteDelicias.Pantallas
                 if (error != null) { Avisar(error); return; }
             }
 
-            if (Ui.Seguro(this, () =>
-            {
-                var id = UsuarioRepo.Crear(nombre, login, rol, txtClave.Text);
-                if (pin.Length > 0) UsuarioRepo.CambiarPin(id, pin);
-            }))
+            if (Ui.Seguro(this, () => UsuarioRepo.Crear(nombre, login, rol, txtClave.Text, pin.Length > 0 ? pin : null)))
                 DialogResult = DialogResult.OK;
         }
 
