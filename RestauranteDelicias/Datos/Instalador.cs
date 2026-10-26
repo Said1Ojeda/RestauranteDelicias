@@ -18,7 +18,8 @@ namespace RestauranteDelicias.Datos
         {
             Tuple.Create(2, "04_fase2_usuarios_caja.sql"),
             Tuple.Create(3, "05_cocina_respaldo.sql"),
-            Tuple.Create(4, "06_seguridad.sql")
+            Tuple.Create(4, "06_seguridad.sql"),
+            Tuple.Create(5, "07_cuentas_y_pedidos.sql")
         };
 
         public static int VersionActual

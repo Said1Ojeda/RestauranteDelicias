@@ -36,12 +36,12 @@ El sistema se va armando por fases. Cada una se puede usar sola, sin esperar a l
 - [x] Regreso al login si nadie usa la compu un rato
 - [x] Atajos de teclado para tomar la orden y cobrar
 - [ ] Opcional: ticket de comanda impreso en cocina, para quien prefiera papel
-- [ ] Mover una orden de mesa y juntar mesas
-- [ ] **Dividir la cuenta** por platillos o en partes iguales, cada parte con su pago
-- [ ] Varios pagos en una cuenta (mitad efectivo, mitad tarjeta)
+- [x] Mover una orden de mesa y juntar mesas
+- [x] **Dividir la cuenta** por platillos o en partes iguales, cada parte con su pago
+- [x] Varios pagos en una cuenta (mitad efectivo, mitad tarjeta)
+- [x] Pedidos para llevar y a domicilio, con nombre, teléfono y dirección
 - [ ] Modificadores con precio: término de la carne, extra queso +Q5, sin hielo
 - [ ] Combos y platillo del día
-- [ ] Pedidos para llevar y a domicilio, con nombre, teléfono y dirección
 - [ ] Configurar áreas y mesas desde el sistema
 
 ## Fase 4: dejarlo lindísimo

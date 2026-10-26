@@ -75,6 +75,9 @@
     <Compile Include="Pantallas\FrmAjustes.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Pantallas\FrmPedido.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Pantallas\FrmPregunta.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -94,6 +97,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmMenu.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Pantallas\FrmMover.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Pantallas\FrmMotivo.cs">
@@ -180,6 +186,10 @@
     </Content>
     <Content Include="..\BaseDatos\06_seguridad.sql">
       <Link>BaseDatos\06_seguridad.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\BaseDatos\07_cuentas_y_pedidos.sql">
+      <Link>BaseDatos\07_cuentas_y_pedidos.sql</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="App.config" />

@@ -31,9 +31,7 @@ namespace RestauranteDelicias.Servicios
             t.AppendLine("-");
             t.AppendLine("Ticket\tNo. " + numeroTicket.ToString("00000"));
             t.AppendLine("Fecha\t" + fecha.ToString("dd/MM/yyyy HH:mm"));
-            t.AppendLine(orden.MesaNumero.HasValue ? "Mesa " + orden.MesaNumero + "\t" + orden.Personas + " personas" : "Para llevar\t");
-            if (!string.IsNullOrEmpty(orden.Mesero)) t.AppendLine("Atendió\t" + orden.Mesero);
-            t.AppendLine("-");
+            Encabezado(t, orden);
 
             // las lineas iguales se juntan, en el ticket no importa si se pidieron en dos tandas
             var grupos = orden.Activas
@@ -57,20 +55,63 @@ namespace RestauranteDelicias.Servicios
             t.AppendLine("~IVA incluido " + Q(orden.IvaIncluido(Configuracion.Iva)));
             t.AppendLine("-");
 
-            foreach (var p in pagos)
-            {
-                t.AppendLine(p.Forma + "\t" + Q(p.Monto));
-                if (p.Forma == "Efectivo" && p.Recibido.HasValue && p.Recibido.Value > p.Monto)
-                {
-                    t.AppendLine("~Recibido " + Q(p.Recibido.Value) + "   Vuelto " + Q(p.Recibido.Value - p.Monto));
-                }
-                if (!string.IsNullOrEmpty(p.Referencia))
-                    t.AppendLine("~Ref. " + Limpio(p.Referencia));
-            }
+            foreach (var p in pagos) LineaDePago(t, p);
 
             t.AppendLine();
             t.AppendLine("^" + Configuracion.Texto("Ticket.Pie", "Gracias por su visita"));
             return t.ToString();
+        }
+
+        // cuando se paga una parte se entrega este comprobante, el ticket con numero sale con el ultimo pago
+        public static string Comprobante(Orden orden, Pago pago, IEnumerable<LineaOrden> platillos, decimal saldo)
+        {
+            var t = new StringBuilder();
+            t.AppendLine("#" + Configuracion.Nombre);
+            t.AppendLine("^COMPROBANTE DE PAGO");
+            t.AppendLine("-");
+            t.AppendLine("Fecha\t" + DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
+            Encabezado(t, orden);
+
+            var lista = platillos.ToList();
+            if (lista.Count > 0)
+            {
+                foreach (var l in lista)
+                    t.AppendLine(l.Cantidad + "  " + Limpio(l.Nombre) + "\t" + Q(l.PrecioUnitario * l.Cantidad));
+                t.AppendLine("~Con su parte de propina y descuento");
+                t.AppendLine("-");
+            }
+
+            t.AppendLine("*PAGADO\t" + Q(pago.Monto));
+            LineaDePago(t, pago);
+            t.AppendLine("-");
+            t.AppendLine("Total de la cuenta\t" + Q(orden.Total));
+            t.AppendLine("*SALDO\t" + Q(saldo));
+            t.AppendLine();
+            t.AppendLine("^El ticket final sale con el último pago");
+            return t.ToString();
+        }
+
+        static void Encabezado(StringBuilder t, Orden orden)
+        {
+            if (orden.MesaNumero.HasValue)
+                t.AppendLine("Mesa " + orden.MesaNumero + "\t" + orden.Personas + " personas");
+            else
+            {
+                t.AppendLine((orden.Tipo == "Domicilio" ? "A domicilio" : "Para llevar") + "\t" + Limpio(orden.Cliente));
+                if (!string.IsNullOrWhiteSpace(orden.Telefono)) t.AppendLine("Teléfono\t" + Limpio(orden.Telefono));
+                if (!string.IsNullOrWhiteSpace(orden.Direccion)) t.AppendLine("~" + Limpio(orden.Direccion));
+            }
+            if (!string.IsNullOrEmpty(orden.Mesero)) t.AppendLine("Atendió\t" + orden.Mesero);
+            t.AppendLine("-");
+        }
+
+        static void LineaDePago(StringBuilder t, Pago p)
+        {
+            t.AppendLine((string.IsNullOrEmpty(p.Parte) ? "" : Limpio(p.Parte) + " · ") + p.Forma + "\t" + Q(p.Monto));
+            if (p.Forma == "Efectivo" && p.Recibido.HasValue && p.Recibido.Value > p.Monto)
+                t.AppendLine("~Recibido " + Q(p.Recibido.Value) + "   Vuelto " + Q(p.Recibido.Value - p.Monto));
+            if (!string.IsNullOrEmpty(p.Referencia))
+                t.AppendLine("~Ref. " + Limpio(p.Referencia));
         }
 
         public static string Reimpresion(string texto)

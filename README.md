@@ -52,6 +52,12 @@ Tiene una pantalla para cada quien: las mesas para meseros y cajeros, y una pant
 - **Verde** si está libre, **roja** si está ocupada, **naranja** si tiene platillos que todavía no se mandaron a cocina y **azul** si cocina ya tiene algo listo.
 - Cada mesa ocupada muestra lo consumido, las personas y cuánto tiempo lleva.
 - Se refresca sola cada 4 segundos, así se ve lo que hacen las otras cajas.
+- **Mover o juntar**: desde la orden se pasa la cuenta a una mesa libre, o se junta con una ocupada. Los platillos, las personas y lo que ya pagaron se van juntos.
+
+**Para llevar y a domicilio**
+- El botón **Para llevar** de arriba abre un pedido con el nombre del cliente, el teléfono y, si es a domicilio, la dirección.
+- Los pedidos abiertos salen arriba de las mesas, cada uno en su tarjeta, y en cocina con el nombre del cliente.
+- El ticket lleva los datos del cliente.
 
 **Orden**
 - Menú en tarjetas con el color de su categoría, filtros por categoría y buscador. Lo que se acabó en el día sale como "agotado" y no se puede pedir.
@@ -64,6 +70,10 @@ Tiene una pantalla para cada quien: las mesas para meseros y cajeros, y una pant
 - Si otro mesero agrega algo a la misma mesa desde otra compu, aparece solo.
 
 **Cobro**
+- Se cobra **todo**, en **partes iguales**, **por platillos** u **otro monto**. Cada pago puede ser en una forma distinta, por ejemplo mitad en efectivo y mitad con tarjeta.
+- Por platillos se escoge cuántos de cada uno paga cada quien, y a cada parte le toca su proporción de la propina y del descuento.
+- Cada pago parcial imprime su comprobante con el saldo que queda. El último pago cierra la cuenta y saca el ticket con número, con todos los pagos.
+- Lo que ya se pagó no se puede anular, y ningún cambio puede dejar la cuenta en menos de lo que ya pagaron.
 - Efectivo, tarjeta o transferencia.
 - En efectivo calcula el vuelto, con botones rápidos de Q50, Q100, Q200 y exacto.
 - En tarjeta o transferencia se anota la referencia.

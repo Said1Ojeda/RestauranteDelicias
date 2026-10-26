@@ -18,6 +18,7 @@ namespace RestauranteDelicias.Pantallas
 
         readonly FlowLayoutPanel panelMesas = new FlowLayoutPanel();
         readonly Dictionary<int, Tarjeta> tarjetas = new Dictionary<int, Tarjeta>();
+        readonly Dictionary<int, Tarjeta> tarjetasDePedidos = new Dictionary<int, Tarjeta>();
         readonly List<FlowLayoutPanel> filasDeMesas = new List<FlowLayoutPanel>();
         readonly Panel lateral = new Panel();
         readonly FlowLayoutPanel menuLateral = new FlowLayoutPanel();
@@ -32,6 +33,7 @@ namespace RestauranteDelicias.Pantallas
         readonly Boton btnRespaldo = Estilo.Boton("Respaldo pendiente", Estilo.Naranja, Icono.Aviso);
         readonly Panel zonaAviso = new Panel();
         List<MesaEstado> mesas = new List<MesaEstado>();
+        List<PedidoSinMesa> pedidos = new List<PedidoSinMesa>();
         bool refrescando;
         bool hayDialogo;
 
@@ -125,6 +127,15 @@ namespace RestauranteDelicias.Pantallas
             cabeza.Controls.Add(lblResumen);
             cabeza.Controls.Add(zonaAviso);
 
+            var zonaPedido = new Panel { Dock = DockStyle.Right, Width = 200, Padding = new Padding(16, 14, 0, 16), BackColor = Color.White };
+            var btnPedido = Estilo.Boton("Para llevar", Estilo.Vino, Icono.Agregar);
+            btnPedido.AutoSize = false;
+            btnPedido.Dock = DockStyle.Fill;
+            btnPedido.Visible = Sesion.PuedeTomarOrdenes;
+            btnPedido.Click += (s, e) => NuevoPedido();
+            zonaPedido.Controls.Add(btnPedido);
+            cabeza.Controls.Add(zonaPedido);
+
             // cada area va en su propia fila que se acomoda al ancho de la pantalla
             panelMesas.Dock = DockStyle.Fill;
             panelMesas.Padding = new Padding(18, 6, 18, 18);
@@ -161,9 +172,10 @@ namespace RestauranteDelicias.Pantallas
             refrescando = true;
             try
             {
-                var nuevas = await Task.Run(() => MesaRepo.Estado());
+                var estado = await Task.Run(() => Tuple.Create(MesaRepo.Estado(), OrdenRepo.SinMesa()));
                 if (IsDisposed) return;
-                mesas = nuevas;
+                mesas = estado.Item1;
+                pedidos = estado.Item2;
                 Pintar();
                 lblConexion.Text = "●  En línea";
                 lblConexion.ForeColor = Estilo.Mezclar(Estilo.Libre, Color.White, 0.25f);
@@ -199,9 +211,20 @@ namespace RestauranteDelicias.Pantallas
         void Pintar()
         {
             // solo se arman las tarjetas de nuevo si cambiaron las mesas, si no se cambia el texto y no parpadea
-            var ids = mesas.Select(m => m.Id).ToList();
-            if (!ids.SequenceEqual(tarjetas.Keys))
+            if (!mesas.Select(m => m.Id).SequenceEqual(tarjetas.Keys) || !pedidos.Select(p => p.OrdenId).SequenceEqual(tarjetasDePedidos.Keys))
                 Armar();
+
+            foreach (var p in pedidos)
+            {
+                var t = tarjetasDePedidos[p.OrdenId];
+                var minutos = (int)(DateTime.Now - p.Apertura).TotalMinutes;
+                t.Acento = p.Listos > 0 ? Estilo.Azul : p.Pendientes > 0 ? Estilo.Naranja : Estilo.Vino;
+                t.Etiqueta = p.Listos > 0 ? (p.Listos == 1 ? "1 listo" : p.Listos + " listos")
+                           : p.Pendientes > 0 ? "Sin enviar"
+                           : p.Tipo == "Domicilio" ? "Domicilio" : "Llevar";
+                t.Detalle = (string.IsNullOrWhiteSpace(p.Telefono) ? "" : p.Telefono + " · ") + Tiempo(minutos);
+                t.Pie = Ticket.Q(p.Subtotal);
+            }
 
             foreach (var m in mesas)
             {
@@ -232,7 +255,8 @@ namespace RestauranteDelicias.Pantallas
 
             var ocupadas = mesas.Count(m => m.Ocupada);
             lblResumen.Text = (mesas.Count - ocupadas) + " libres     " + ocupadas + " ocupadas     " +
-                              Ticket.Q(mesas.Sum(m => m.Subtotal)) + " en mesas";
+                              (pedidos.Count > 0 ? pedidos.Count + (pedidos.Count == 1 ? " pedido     " : " pedidos     ") : "") +
+                              Ticket.Q(mesas.Sum(m => m.Subtotal) + pedidos.Sum(p => p.Subtotal)) + " abierto";
         }
 
         void Armar()
@@ -240,45 +264,81 @@ namespace RestauranteDelicias.Pantallas
             panelMesas.SuspendLayout();
             Estilo.Vaciar(panelMesas);
             tarjetas.Clear();
+            tarjetasDePedidos.Clear();
             filasDeMesas.Clear();
+
+            if (pedidos.Count > 0)
+            {
+                var fila = Seccion("Para llevar y a domicilio");
+                foreach (var p in pedidos)
+                {
+                    var pedido = p;
+                    var t = NuevaTarjeta(string.IsNullOrWhiteSpace(p.Cliente) ? "Pedido" : p.Cliente);
+                    t.Click += async (s, e) => await Dialogo(new FrmOrden(pedido.OrdenId));
+                    tarjetasDePedidos[pedido.OrdenId] = t;
+                    fila.Controls.Add(t);
+                }
+            }
 
             foreach (var area in mesas.GroupBy(m => m.AreaNombre))
             {
-                panelMesas.Controls.Add(new Label
-                {
-                    Text = area.Key.ToUpper(),
-                    Font = Estilo.Negrita,
-                    ForeColor = Estilo.Suave,
-                    AutoSize = true,
-                    Margin = new Padding(Estilo.Px(8), Estilo.Px(18), Estilo.Px(8), Estilo.Px(2))
-                });
-
-                var fila = new FlowLayoutPanel
-                {
-                    AutoSize = true,
-                    AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                    WrapContents = true,
-                    Margin = new Padding(0),
-                    BackColor = Estilo.Crema
-                };
+                var fila = Seccion(area.Key);
                 foreach (var m in area)
                 {
                     var mesa = m;
-                    var t = new Tarjeta
-                    {
-                        Titulo = "Mesa " + mesa.Numero,
-                        Size = new Size(Estilo.Px(200), Estilo.Px(124)),
-                        Margin = new Padding(Estilo.Px(7))
-                    };
+                    var t = NuevaTarjeta("Mesa " + mesa.Numero);
                     t.Click += (s, e) => AbrirMesa(mesa.Id, mesa.Numero);
                     tarjetas[mesa.Id] = t;
                     fila.Controls.Add(t);
                 }
-                filasDeMesas.Add(fila);
-                panelMesas.Controls.Add(fila);
             }
             AcomodarMesas();
             panelMesas.ResumeLayout();
+        }
+
+        // un titulo y debajo una fila de tarjetas que se acomoda al ancho
+        FlowLayoutPanel Seccion(string titulo)
+        {
+            panelMesas.Controls.Add(new Label
+            {
+                Text = titulo.ToUpper(),
+                Font = Estilo.Negrita,
+                ForeColor = Estilo.Suave,
+                AutoSize = true,
+                Margin = new Padding(Estilo.Px(8), Estilo.Px(18), Estilo.Px(8), Estilo.Px(2))
+            });
+            var fila = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                Margin = new Padding(0),
+                BackColor = Estilo.Crema
+            };
+            filasDeMesas.Add(fila);
+            panelMesas.Controls.Add(fila);
+            return fila;
+        }
+
+        static Tarjeta NuevaTarjeta(string titulo)
+        {
+            return new Tarjeta
+            {
+                Titulo = titulo,
+                Size = new Size(Estilo.Px(200), Estilo.Px(124)),
+                Margin = new Padding(Estilo.Px(7))
+            };
+        }
+
+        async void NuevoPedido()
+        {
+            int ordenId;
+            using (var f = new FrmPedido())
+            {
+                if (f.ShowDialog(this) != DialogResult.OK) return;
+                ordenId = f.OrdenId;
+            }
+            await Dialogo(new FrmOrden(ordenId));
         }
 
         // el ancho que queda se reparte entre las tarjetas, en pantalla grande caben mas por fila y en chica bajan
