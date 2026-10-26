@@ -16,11 +16,24 @@ namespace RestauranteDelicias.Pantallas
         readonly DateTimePicker fecha = new DateTimePicker();
         readonly DataGridView grid = new DataGridView();
         readonly Label lblResumen = new Label();
+        readonly ComboBox cboCajero = new ComboBox();
         List<Venta> ventas = new List<Venta>();
+
+        // el cajero solo ve lo que cobro el, el admin ve todo o escoge un cajero
+        int? Cajero
+        {
+            get
+            {
+                if (!Sesion.EsAdmin) return Sesion.Id;
+                var u = cboCajero.SelectedItem as Usuario;
+                return u == null || u.Id == 0 ? (int?)null : u.Id;
+            }
+        }
 
         public FrmVentas()
         {
-            Estilo.Formulario(this, "Ventas del día", 900, 560);
+            var titulo = Sesion.EsAdmin ? "Ventas del día" : "Mis ventas del día";
+            Estilo.Formulario(this, titulo, 900, 560);
 
             var arriba = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
             fecha.Format = DateTimePickerFormat.Long;
@@ -33,7 +46,17 @@ namespace RestauranteDelicias.Pantallas
             btnTicket.Click += (s, e) => Reimprimir();
             btnExportar.Click += (s, e) => Exportar();
             arriba.Controls.Add(new Label { Text = "Día", AutoSize = true, Margin = new Padding(4, 10, 4, 0) });
-            arriba.Controls.AddRange(new Control[] { fecha, btnActualizar, btnTicket, btnExportar });
+            arriba.Controls.Add(fecha);
+            if (Sesion.EsAdmin)
+            {
+                cboCajero.DropDownStyle = ComboBoxStyle.DropDownList;
+                cboCajero.Width = 220;
+                cboCajero.DisplayMember = "Nombre";
+                cboCajero.SelectedIndexChanged += (s, e) => Cargar();
+                arriba.Controls.Add(new Label { Text = "Cobró", AutoSize = true, Margin = new Padding(14, 10, 4, 0) });
+                arriba.Controls.Add(cboCajero);
+            }
+            arriba.Controls.AddRange(new Control[] { btnActualizar, btnTicket, btnExportar });
 
             Estilo.Tabla(grid);
             grid.Dock = DockStyle.Fill;
@@ -61,9 +84,21 @@ namespace RestauranteDelicias.Pantallas
             Controls.Add(grid);
             Controls.Add(lblResumen);
             Controls.Add(arriba);
-            Controls.Add(Estilo.Encabezado("Ventas del día"));
+            Controls.Add(Estilo.Encabezado(titulo));
 
-            Load += (s, e) => Cargar();
+            Load += (s, e) =>
+            {
+                if (Sesion.EsAdmin) CargarCajeros();
+                Cargar();
+            };
+        }
+
+        void CargarCajeros()
+        {
+            List<Usuario> cajeros = null;
+            if (!Ui.Seguro(this, () => cajeros = VentaRepo.Cajeros())) return;
+            cajeros.Insert(0, new Usuario { Id = 0, Nombre = "Todos" });
+            cboCajero.DataSource = cajeros;
         }
 
         void Cargar()
@@ -72,9 +107,10 @@ namespace RestauranteDelicias.Pantallas
             int anuladas = 0;
             if (!Ui.Seguro(this, () =>
             {
-                ventas = VentaRepo.DelDia(fecha.Value);
-                formas = VentaRepo.PorForma(fecha.Value);
-                anuladas = VentaRepo.Anuladas(fecha.Value);
+                var cajero = Cajero;
+                ventas = VentaRepo.DelDia(fecha.Value, cajero);
+                formas = VentaRepo.PorForma(fecha.Value, cajero);
+                anuladas = VentaRepo.Anuladas(fecha.Value, cajero);
             })) return;
 
             grid.Rows.Clear();

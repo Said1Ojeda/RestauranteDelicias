@@ -16,10 +16,10 @@ namespace RestauranteDelicias.Datos
         const string CAMPOS_ORDEN =
             @"o.Id, o.Tipo, o.MesaId, m.Numero AS MesaNumero, o.Estado, o.Personas, o.ConPropina,
               o.PorcentajePropina, o.Descuento, o.DescuentoMotivo, o.Apertura, o.Cierre, o.NumeroTicket, o.Version,
-              o.Cliente, o.Telefono, o.Direccion, u.Nombre AS Mesero";
+              o.Cliente, o.Telefono, o.Direccion, o.NumeroLlevar, u.Nombre AS Mesero";
 
         const string CAMPOS_LINEA =
-            @"Id, OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Estado, Anulado, MotivoAnulacion, PagoId";
+            @"Id, OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Estado, Anulado, MotivoAnulacion, PagoId, Opciones";
 
         const string YA_COBRADA = "Esta orden ya fue cobrada o anulada en otra caja.";
 
@@ -53,7 +53,7 @@ namespace RestauranteDelicias.Datos
 
         // si la mesa no tiene orden se abre en la misma transaccion, asi dos meseros que piden al mismo tiempo caen en la misma cuenta
         // ordenEnPantalla es la que tiene abierta quien pide, si ya no es la de la mesa es que la cobraron en otra caja
-        public static int AgregarAMesa(int mesaId, int? ordenEnPantalla, int platilloId, int cantidad, string nota, int personas, bool conPropina)
+        public static int AgregarAMesa(int mesaId, int? ordenEnPantalla, int platilloId, IList<int> opciones, int cantidad, string nota, int personas, bool conPropina)
         {
             Sesion.Exigir(Sesion.PuedeTomarOrdenes);
             if (cantidad < 1 || cantidad > 50) throw new AvisoException("La cantidad tiene que ser de 1 a 50.");
@@ -76,7 +76,7 @@ namespace RestauranteDelicias.Datos
                           VALUES (N'Mesa', @mesaId, @mesero, @personas, @conPropina, @propina, @equipo)",
                         new { mesaId, mesero = Sesion.Id, personas, conPropina, propina = Configuracion.Propina, equipo = Conexion.Equipo }, tx);
 
-                InsertarLinea(c, tx, ordenId.Value, platilloId, cantidad, nota);
+                InsertarLinea(c, tx, ordenId.Value, platilloId, opciones, cantidad, nota);
                 return ordenId.Value;
             });
 
@@ -92,7 +92,7 @@ namespace RestauranteDelicias.Datos
         }
 
         // los pedidos para llevar no tienen mesa, se agrega directo a su orden
-        public static void AgregarAOrden(int ordenId, int platilloId, int cantidad, string nota)
+        public static void AgregarAOrden(int ordenId, int platilloId, IList<int> opciones, int cantidad, string nota)
         {
             Sesion.Exigir(Sesion.PuedeTomarOrdenes);
             if (cantidad < 1 || cantidad > 50) throw new AvisoException("La cantidad tiene que ser de 1 a 50.");
@@ -102,55 +102,130 @@ namespace RestauranteDelicias.Datos
             EnTransaccion((c, tx) =>
             {
                 BloquearOrdenAbierta(c, tx, ordenId);
-                InsertarLinea(c, tx, ordenId, platilloId, cantidad, nota);
+                InsertarLinea(c, tx, ordenId, platilloId, opciones, cantidad, nota);
                 return 0;
             });
         }
 
         // si ya hay un renglon igual sin mandar a cocina y sin pagar se suma ahi, si no se crea otro
-        static void InsertarLinea(IDbConnection c, IDbTransaction tx, int ordenId, int platilloId, int cantidad, string nota)
+        // el precio sale de la base, el del platillo mas lo que cuesten las opciones, nunca de la pantalla
+        static void InsertarLinea(IDbConnection c, IDbTransaction tx, int ordenId, int platilloId, IList<int> opciones, int cantidad, string nota)
         {
-            c.Execute(
-                @"IF NOT EXISTS (SELECT 1 FROM dbo.Platillo WHERE Id = @platilloId AND Activo = 1 AND Disponible = 1)
-                      THROW 50002, N'Ese platillo ya no está disponible.', 1;
+            var platillo = c.QuerySingleOrDefault<Platillo>(
+                "SELECT Id, Nombre, Precio FROM dbo.Platillo WHERE Id = @platilloId AND Activo = 1 AND Disponible = 1",
+                new { platilloId }, tx);
+            if (platillo == null) throw new AvisoException("Ese platillo ya no está disponible.");
 
-                  UPDATE dbo.OrdenDetalle
+            var elegidas = OpcionesValidas(c, tx, platilloId, opciones ?? new List<int>());
+            var texto = string.Join(", ", elegidas.Select(o => o.Nombre));
+            if (texto.Length > 300) texto = texto.Substring(0, 300);
+            var precio = platillo.Precio + elegidas.Sum(o => o.Precio);
+
+            var sumadas = c.Execute(
+                @"UPDATE dbo.OrdenDetalle
                   SET Cantidad = Cantidad + @cantidad
                   WHERE Id = (SELECT TOP (1) Id FROM dbo.OrdenDetalle
-                              WHERE OrdenId = @ordenId AND PlatilloId = @platilloId AND Nota = @nota
-                                AND Estado = N'Nuevo' AND Anulado = 0 AND PagoId IS NULL AND Cantidad + @cantidad <= 50
-                              ORDER BY Id);
+                              WHERE OrdenId = @ordenId AND PlatilloId = @platilloId AND Nota = @nota AND Opciones = @texto
+                                AND PrecioUnitario = @precio AND Estado = N'Nuevo' AND Anulado = 0 AND PagoId IS NULL
+                                AND Cantidad + @cantidad <= 50
+                              ORDER BY Id)",
+                new { ordenId, platilloId, nota, texto, precio, cantidad }, tx);
+            if (sumadas > 0) return;
 
-                  IF @@ROWCOUNT = 0
-                      INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, CreadoPor)
-                      SELECT @ordenId, Id, Nombre, @cantidad, Precio, @nota, @usuario
-                      FROM dbo.Platillo WHERE Id = @platilloId;",
-                new { ordenId, platilloId, cantidad, nota, usuario = Sesion.Id }, tx);
+            var detalleId = c.ExecuteScalar<int>(
+                @"INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Opciones, CreadoPor)
+                  OUTPUT INSERTED.Id
+                  VALUES (@ordenId, @platilloId, @nombre, @cantidad, @precio, @nota, @texto, @usuario)",
+                new { ordenId, platilloId, nombre = platillo.Nombre, cantidad, precio, nota, texto, usuario = Sesion.Id }, tx);
+            foreach (var opcion in elegidas)
+                c.Execute(
+                    "INSERT INTO dbo.OrdenDetalleOpcion (DetalleId, OpcionId, Nombre, Precio) VALUES (@detalleId, @Id, @Nombre, @Precio)",
+                    new { detalleId, opcion.Id, opcion.Nombre, opcion.Precio }, tx);
         }
 
-        public static int CrearSinMesa(string tipo, string cliente, string telefono, string direccion)
+        // revisa contra la base que lo escogido cumpla cada grupo del platillo
+        // un grupo que depende de otra opcion solo cuenta si esa opcion se escogio
+        static List<Opcion> OpcionesValidas(IDbConnection c, IDbTransaction tx, int platilloId, IList<int> opciones)
+        {
+            var grupos = OpcionRepo.DePlatillo(c, tx, platilloId);
+            var todas = grupos.SelectMany(g => g.Opciones).ToList();
+            var ids = opciones.Distinct().ToList();
+            if (ids.Any(id => !todas.Any(o => o.Id == id)))
+                throw new AvisoException("Alguna de las opciones ya no está disponible, vuelve a escoger.");
+
+            var elegidas = new List<Opcion>();
+            foreach (var g in grupos)
+            {
+                var deEste = g.Opciones.Where(o => ids.Contains(o.Id)).ToList();
+                var aplica = !g.SoloSiOpcionId.HasValue || ids.Contains(g.SoloSiOpcionId.Value);
+                if (!aplica)
+                {
+                    if (deEste.Count > 0) throw new AvisoException(g.Nombre + " no aplica con lo que escogieron.");
+                    continue;
+                }
+                if (deEste.Count < g.Minimo) throw new AvisoException("Falta escoger " + g.Nombre.ToLower() + ".");
+                if (deEste.Count > g.Maximo) throw new AvisoException("En " + g.Nombre.ToLower() + " se pueden escoger hasta " + g.Maximo + ".");
+                elegidas.AddRange(deEste);
+            }
+            return elegidas;
+        }
+
+        // otro igual al renglon, con las mismas opciones y nota, va como pedido nuevo para que cocina lo vea
+        public static void Repetir(int lineaId)
         {
             Sesion.Exigir(Sesion.PuedeTomarOrdenes);
-            if (tipo != "Llevar" && tipo != "Domicilio") throw new AvisoException("Escoge si es para llevar o a domicilio.");
-            cliente = Recortar(cliente, 100);
-            telefono = Recortar(telefono, 20);
-            direccion = Recortar(direccion, 200);
-            if (cliente == null) throw new AvisoException("Escribe el nombre del cliente.");
-            if (tipo == "Domicilio" && (telefono == null || direccion == null))
-                throw new AvisoException("A domicilio se necesita el teléfono y la dirección.");
+            EnTransaccion((c, tx) =>
+            {
+                var ordenId = OrdenDeLinea(c, tx, lineaId);
+                BloquearOrdenAbierta(c, tx, ordenId);
+                var linea = c.QuerySingle<LineaOrden>("SELECT PlatilloId, Nota FROM dbo.OrdenDetalle WHERE Id = @lineaId", new { lineaId }, tx);
+                var opciones = c.Query<int>("SELECT OpcionId FROM dbo.OrdenDetalleOpcion WHERE DetalleId = @lineaId", new { lineaId }, tx).ToList();
+                InsertarLinea(c, tx, ordenId, linea.PlatilloId, opciones, 1, linea.Nota);
+                return 0;
+            });
+        }
 
-            return EnTransaccion((c, tx) => c.ExecuteScalar<int>(
-                @"INSERT INTO dbo.Orden (Tipo, MeseroId, Cliente, Telefono, Direccion, ConPropina, PorcentajePropina, Equipo)
-                  OUTPUT INSERTED.Id
-                  VALUES (@tipo, @mesero, @cliente, @telefono, @direccion, 0, @propina, @equipo)",
-                new { tipo, mesero = Sesion.Id, cliente, telefono, direccion, propina = Configuracion.Propina, equipo = Conexion.Equipo }, tx));
+        // la nota se cambia mientras no se haya mandado a cocina, despues ya hay que anular y pedir de nuevo
+        public static void CambiarNota(int lineaId, string nota)
+        {
+            Sesion.Exigir(Sesion.PuedeTomarOrdenes);
+            nota = (nota ?? "").Trim();
+            if (nota.Length > 150) nota = nota.Substring(0, 150);
+            EnTransaccion((c, tx) =>
+            {
+                BloquearOrdenAbierta(c, tx, OrdenDeLinea(c, tx, lineaId));
+                var filas = c.Execute(
+                    "UPDATE dbo.OrdenDetalle SET Nota = @nota WHERE Id = @lineaId AND Estado = N'Nuevo' AND Anulado = 0 AND PagoId IS NULL",
+                    new { lineaId, nota }, tx);
+                if (filas == 0)
+                    throw new AvisoException("Ese platillo ya se mandó a cocina. Para cambiarlo anúlalo y pídelo de nuevo.");
+                return filas;
+            });
+        }
+
+        // para llevar se llama por numero, empieza en 1 cada dia, el nombre es opcional para llamarlo
+        public static int CrearLlevar(string cliente)
+        {
+            Sesion.Exigir(Sesion.PuedeTomarOrdenes);
+            cliente = Recortar(cliente, 100);
+            return EnTransaccion((c, tx) =>
+            {
+                var numero = c.ExecuteScalar<int>(
+                    @"SELECT ISNULL(MAX(NumeroLlevar), 0) + 1 FROM dbo.Orden WITH (UPDLOCK, HOLDLOCK)
+                      WHERE Tipo = N'Llevar' AND Apertura >= CAST(CAST(SYSDATETIME() AS DATE) AS DATETIME2(0))", transaction: tx);
+                return c.ExecuteScalar<int>(
+                    @"INSERT INTO dbo.Orden (Tipo, MeseroId, Cliente, NumeroLlevar, ConPropina, PorcentajePropina, Equipo)
+                      OUTPUT INSERTED.Id
+                      VALUES (N'Llevar', @mesero, @cliente, @numero, 0, @propina, @equipo)",
+                    new { mesero = Sesion.Id, cliente, numero, propina = Configuracion.Propina, equipo = Conexion.Equipo }, tx);
+            });
         }
 
         public static List<PedidoSinMesa> SinMesa()
         {
             using (var c = Conexion.Abrir())
                 return c.Query<PedidoSinMesa>(
-                    @"SELECT o.Id AS OrdenId, o.Tipo, o.Cliente, o.Telefono, o.Apertura,
+                    @"SELECT o.Id AS OrdenId, o.Tipo, o.Cliente, o.Telefono, o.NumeroLlevar, o.Apertura,
                              ISNULL(t.Subtotal, 0) AS Subtotal, ISNULL(t.Pendientes, 0) AS Pendientes, ISNULL(t.Listos, 0) AS Listos
                       FROM dbo.Orden o
                       OUTER APPLY (
@@ -279,13 +354,15 @@ namespace RestauranteDelicias.Datos
                     // se parte la linea, una parte sigue y la otra queda anulada para que cuadre el reporte
                     c.Execute("UPDATE dbo.OrdenDetalle SET Cantidad = Cantidad - @cantidad WHERE Id = @lineaId",
                         new { lineaId, cantidad }, tx);
-                    c.Execute(
-                        @"INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Estado, Enviado,
+                    var copia = c.ExecuteScalar<int>(
+                        @"INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Opciones, Estado, Enviado,
                                                         Anulado, MotivoAnulacion, CreadoPor, AnuladoPor, AutorizadoPor)
-                          SELECT OrdenId, PlatilloId, Nombre, @cantidad, PrecioUnitario, Nota, Estado, Enviado,
+                          OUTPUT INSERTED.Id
+                          SELECT OrdenId, PlatilloId, Nombre, @cantidad, PrecioUnitario, Nota, Opciones, Estado, Enviado,
                                  1, @motivo, CreadoPor, @usuario, @autorizo
                           FROM dbo.OrdenDetalle WHERE Id = @lineaId",
                         new { lineaId, cantidad, motivo, usuario = Sesion.Id, autorizo }, tx);
+                    CopiarOpciones(c, tx, lineaId, copia);
                 }
                 ExigirQueCubraLoPagado(c, tx, l.OrdenId);
                 Bitacora.Registrar(c, tx, "Anulación",
@@ -356,6 +433,7 @@ namespace RestauranteDelicias.Datos
             var turnoId = Sesion.TurnoId.Value;
             var parte = Recortar(pago.Parte, 40);
             platillos = platillos ?? new List<LineaPagada>();
+            DatosDeFactura(pago);
 
             return EnTransaccion((c, tx) =>
             {
@@ -403,10 +481,22 @@ namespace RestauranteDelicias.Datos
                     throw new AvisoException("El pago es mayor que el saldo de " + Ticket.Q(saldo) + ".");
 
                 var pagoId = c.ExecuteScalar<int>(
-                    @"INSERT INTO dbo.Pago (OrdenId, Forma, Monto, Recibido, Referencia, UsuarioId, TurnoId, Parte)
+                    @"INSERT INTO dbo.Pago (OrdenId, Forma, Monto, Recibido, Referencia, UsuarioId, TurnoId, Parte, Nit, NombreFactura, DireccionFactura)
                       OUTPUT INSERTED.Id
-                      VALUES (@ordenId, @Forma, @Monto, @Recibido, @Referencia, @usuario, @turnoId, @parte)",
-                    new { ordenId, pago.Forma, pago.Monto, pago.Recibido, pago.Referencia, usuario = Sesion.Id, turnoId, parte }, tx);
+                      VALUES (@ordenId, @Forma, @Monto, @Recibido, @Referencia, @usuario, @turnoId, @parte, @Nit, @NombreFactura, @DireccionFactura)",
+                    new
+                    {
+                        ordenId, pago.Forma, pago.Monto, pago.Recibido, pago.Referencia, usuario = Sesion.Id, turnoId, parte,
+                        pago.Nit, pago.NombreFactura, pago.DireccionFactura
+                    }, tx);
+
+                // el cliente con NIT queda guardado, la proxima vez se llena solo
+                if (!Nit.EsConsumidorFinal(pago.Nit))
+                    c.Execute(
+                        @"UPDATE dbo.Cliente SET Nombre = @NombreFactura, Direccion = @DireccionFactura, Actualizado = SYSDATETIME() WHERE Nit = @Nit;
+                          IF @@ROWCOUNT = 0
+                              INSERT INTO dbo.Cliente (Nit, Nombre, Direccion) VALUES (@Nit, @NombreFactura, @DireccionFactura);",
+                        new { pago.Nit, pago.NombreFactura, pago.DireccionFactura }, tx);
 
                 foreach (var p in platillos)
                 {
@@ -417,14 +507,16 @@ namespace RestauranteDelicias.Datos
                         continue;
                     }
                     // se parte el renglon, lo que se paga queda en uno nuevo con el mismo estado de cocina
-                    c.Execute(
+                    var copia = c.ExecuteScalar<int>(
                         @"UPDATE dbo.OrdenDetalle SET Cantidad = Cantidad - @cantidad WHERE Id = @lineaId;
-                          INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Estado, Enviado,
+                          INSERT INTO dbo.OrdenDetalle (OrdenId, PlatilloId, Nombre, Cantidad, PrecioUnitario, Nota, Opciones, Estado, Enviado,
                                                         Preparando, Listo, Entregado, Anulado, CreadoPor, PagoId)
-                          SELECT OrdenId, PlatilloId, Nombre, @cantidad, PrecioUnitario, Nota, Estado, Enviado,
+                          OUTPUT INSERTED.Id
+                          SELECT OrdenId, PlatilloId, Nombre, @cantidad, PrecioUnitario, Nota, Opciones, Estado, Enviado,
                                  Preparando, Listo, Entregado, 0, CreadoPor, @pagoId
                           FROM dbo.OrdenDetalle WHERE Id = @lineaId;",
                         new { lineaId = l.Id, cantidad = p.Cantidad, pagoId }, tx);
+                    CopiarOpciones(c, tx, l.Id, copia);
                 }
 
                 var resultado = new ResultadoPago { PagoId = pagoId, Saldo = saldo - pago.Monto };
@@ -481,8 +573,32 @@ namespace RestauranteDelicias.Datos
         public static List<Pago> Pagos(int ordenId)
         {
             using (var c = Conexion.Abrir())
-                return c.Query<Pago>("SELECT Id, Parte, Forma, Monto, Recibido, Referencia FROM dbo.Pago WHERE OrdenId = @ordenId ORDER BY Id",
+                return c.Query<Pago>(
+                    @"SELECT Id, Parte, Forma, Monto, Recibido, Referencia, Nit, NombreFactura, DireccionFactura
+                      FROM dbo.Pago WHERE OrdenId = @ordenId ORDER BY Id",
                     new { ordenId }).ToList();
+        }
+
+        // arriba de Q2,500 la SAT no permite consumidor final, hay que dar NIT o CUI
+        public const decimal LIMITE_CONSUMIDOR_FINAL = 2500m;
+
+        static void DatosDeFactura(Pago pago)
+        {
+            pago.Nit = Nit.Limpiar(pago.Nit);
+            if (pago.Nit.Length == 0) pago.Nit = Nit.CONSUMIDOR_FINAL;
+            if (!Nit.Valido(pago.Nit)) throw new AvisoException("El NIT " + pago.Nit + " no es válido, revísalo.");
+
+            if (Nit.EsConsumidorFinal(pago.Nit))
+            {
+                if (pago.Monto >= LIMITE_CONSUMIDOR_FINAL)
+                    throw new AvisoException("Desde " + Ticket.Q(LIMITE_CONSUMIDOR_FINAL) + " la factura no puede ir a consumidor final, pide el NIT o el CUI.");
+                pago.NombreFactura = "Consumidor Final";
+                pago.DireccionFactura = "Ciudad";
+                return;
+            }
+            pago.NombreFactura = Recortar(pago.NombreFactura, 150);
+            pago.DireccionFactura = Recortar(pago.DireccionFactura, 200) ?? "Ciudad";
+            if (pago.NombreFactura == null) throw new AvisoException("Escribe el nombre para la factura.");
         }
 
         // la cuenta como esta en la base en este momento, con lo que ya se pago
@@ -510,6 +626,15 @@ namespace RestauranteDelicias.Datos
             texto = (texto ?? "").Trim();
             if (texto.Length == 0) return null;
             return texto.Length > largo ? texto.Substring(0, largo) : texto;
+        }
+
+        // cuando un renglon se parte, la parte nueva lleva las mismas opciones para los reportes
+        static void CopiarOpciones(IDbConnection c, IDbTransaction tx, int origen, int copia)
+        {
+            c.Execute(
+                @"INSERT INTO dbo.OrdenDetalleOpcion (DetalleId, OpcionId, Nombre, Precio)
+                  SELECT @copia, OpcionId, Nombre, Precio FROM dbo.OrdenDetalleOpcion WHERE DetalleId = @origen",
+                new { origen, copia }, tx);
         }
 
         static int OrdenDeLinea(IDbConnection c, IDbTransaction tx, int lineaId)

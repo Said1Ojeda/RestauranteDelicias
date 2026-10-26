@@ -54,14 +54,21 @@ Tiene una pantalla para cada quien: las mesas para meseros y cajeros, y una pant
 - Se refresca sola cada 4 segundos, así se ve lo que hacen las otras cajas.
 - **Mover o juntar**: desde la orden se pasa la cuenta a una mesa libre, o se junta con una ocupada. Los platillos, las personas y lo que ya pagaron se van juntos.
 
-**Para llevar y a domicilio**
-- El botón **Para llevar** de arriba abre un pedido con el nombre del cliente, el teléfono y, si es a domicilio, la dirección.
-- Los pedidos abiertos salen arriba de las mesas, cada uno en su tarjeta, y en cocina con el nombre del cliente.
-- El ticket lleva los datos del cliente.
+**Para llevar**
+- El botón **Para llevar** de arriba abre una cuenta con número correlativo del día ("Llevar #12") y, si quieren, un nombre para llamarlo cuando esté listo.
+- Los pedidos abiertos salen arriba de las mesas y en cocina con su número.
+
+**Mesas y áreas**
+- En **Ajustes → Mesas y áreas** el admin crea áreas, agrega mesas con su número, capacidad y forma, y las mueve de área.
+- Nada se borra: lo que ya no se usa se desactiva, así las ventas viejas siguen igual. Una mesa con cuenta abierta no se puede desactivar.
 
 **Orden**
 - Menú en tarjetas con el color de su categoría, filtros por categoría y buscador. Lo que se acabó en el día sale como "agotado" y no se puede pedir.
-- Se agrega con un toque, con cantidad y nota ("sin cebolla", "bien cocido"). En el buscador, Enter agrega el primero que sale.
+- Se agrega con un toque. En el buscador, Enter agrega el primero que sale.
+- **Opciones del platillo**: si el platillo pregunta algo, al tocarlo sale una ventana para escoger. Por ejemplo, el desayuno pide el estilo de los huevos y, solo si son estrellados, el término. También hay extras con precio (queso +Q5) y cosas para quitar (sin cebolla).
+- Las opciones obligatorias se marcan y no deja agregar hasta escogerlas. El precio se calcula solo, siempre desde la base.
+- El botón **Nota** le pone o cambia la nota a lo que ya se pidió, mientras no se haya mandado a cocina.
+- En **Menú** el admin arma los **grupos de opciones** (cuántas se escogen, si son obligatorias, de qué opción dependen) y escoge cuáles le tocan a cada platillo.
 - **Enviar a cocina**: lo nuevo se marca como enviado. Si se cierra la mesa sin enviar, el sistema pregunta.
 - Lo que no se ha enviado se cambia libremente. Lo que ya está en cocina se **anula con motivo**, y queda en la bitácora.
 - Personas por mesa, propina opcional (10 % por defecto) y el IVA incluido desglosado.
@@ -74,6 +81,10 @@ Tiene una pantalla para cada quien: las mesas para meseros y cajeros, y una pant
 - Por platillos se escoge cuántos de cada uno paga cada quien, y a cada parte le toca su proporción de la propina y del descuento.
 - Cada pago parcial imprime su comprobante con el saldo que queda. El último pago cierra la cuenta y saca el ticket con número, con todos los pagos.
 - Lo que ya se pagó no se puede anular, y ningún cambio puede dejar la cuenta en menos de lo que ya pagaron.
+- **Factura**: cada pago lleva sus datos. Por defecto va a consumidor final (CF, Ciudad). Con NIT o CUI se escribe el nombre y la dirección; el NIT se revisa con su dígito verificador.
+- Los clientes con NIT quedan guardados: la siguiente vez basta con escribir el NIT.
+- Desde Q2,500 no deja facturar a consumidor final, como pide la SAT.
+- En una cuenta dividida, cada quien puede pedir la factura con su propio NIT.
 - Efectivo, tarjeta o transferencia.
 - En efectivo calcula el vuelto, con botones rápidos de Q50, Q100, Q200 y exacto.
 - En tarjeta o transferencia se anota la referencia.
@@ -86,6 +97,7 @@ Tiene una pantalla para cada quien: las mesas para meseros y cajeros, y una pant
 - Los cambios de precio quedan en la bitácora.
 
 **Ventas del día**
+- El cajero solo ve **sus ventas**. El admin ve todas y puede filtrar por cajero.
 - Cobros de cualquier fecha, con el mesero, quién cobró, el total por forma de pago, el consumo, las propinas y los platillos anulados.
 - Reimprimir un ticket y exportar a CSV para Excel.
 

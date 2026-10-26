@@ -12,8 +12,10 @@ namespace RestauranteDelicias.Modelos
         public int? MesaNumero { get; set; }
         public string Tipo { get; set; }
         public string Cliente { get; set; }
+        public int? NumeroLlevar { get; set; }
         public string Mesero { get; set; }
         public string Nombre { get; set; }
+        public string Opciones { get; set; }
         public int Cantidad { get; set; }
         public string Nota { get; set; }
         public string Estado { get; set; }
@@ -29,17 +31,13 @@ namespace RestauranteDelicias.Modelos
         public int? MesaNumero { get; set; }
         public string Tipo { get; set; }
         public string Cliente { get; set; }
+        public int? NumeroLlevar { get; set; }
         public string Mesero { get; set; }
         public DateTime Enviado { get; set; }
 
         public string Titulo
         {
-            get
-            {
-                if (MesaNumero.HasValue) return "Mesa " + MesaNumero;
-                var tipo = Tipo == "Domicilio" ? "Domicilio" : "Llevar";
-                return string.IsNullOrWhiteSpace(Cliente) ? tipo : tipo + " · " + Cliente;
-            }
+            get { return Orden.TituloDe(MesaNumero, NumeroLlevar, Cliente); }
         }
         public List<LineaCocina> Lineas { get; set; } = new List<LineaCocina>();
 
@@ -79,6 +77,7 @@ namespace RestauranteDelicias.Modelos
                     MesaNumero = g.First().MesaNumero,
                     Tipo = g.First().Tipo,
                     Cliente = g.First().Cliente,
+                    NumeroLlevar = g.First().NumeroLlevar,
                     Mesero = g.First().Mesero,
                     Lineas = g.OrderBy(l => l.Anulado).ThenBy(l => l.Id).ToList()
                 })

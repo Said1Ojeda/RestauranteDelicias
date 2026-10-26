@@ -20,6 +20,7 @@ namespace RestauranteDelicias.Modelos
         public string Cliente { get; set; }
         public string Telefono { get; set; }
         public string Direccion { get; set; }
+        public int? NumeroLlevar { get; set; }
         public DateTime Apertura { get; set; }
         public DateTime? Cierre { get; set; }
         public int? NumeroTicket { get; set; }
@@ -41,9 +42,7 @@ namespace RestauranteDelicias.Modelos
         {
             get
             {
-                if (MesaNumero.HasValue) return "Mesa " + MesaNumero;
-                var tipo = Tipo == "Domicilio" ? "Domicilio" : "Para llevar";
-                return string.IsNullOrWhiteSpace(Cliente) ? tipo : tipo + " · " + Cliente;
+                return TituloDe(MesaNumero, NumeroLlevar, Cliente);
             }
         }
 
@@ -65,6 +64,13 @@ namespace RestauranteDelicias.Modelos
         public decimal Total
         {
             get { return Subtotal - Descuento + Propina; }
+        }
+
+        public static string TituloDe(int? mesaNumero, int? numeroLlevar, string cliente)
+        {
+            if (mesaNumero.HasValue) return "Mesa " + mesaNumero;
+            var llevar = "Llevar #" + (numeroLlevar ?? 0);
+            return string.IsNullOrWhiteSpace(cliente) ? llevar : llevar + " · " + cliente;
         }
 
         public decimal Saldo
@@ -114,6 +120,13 @@ namespace RestauranteDelicias.Modelos
         public bool Anulado { get; set; }
         public string MotivoAnulacion { get; set; }
         public int? PagoId { get; set; }
+        public string Opciones { get; set; }
+
+        // el nombre con lo que escogieron, por ejemplo Desayuno chapin · Estrellados, Tiernos
+        public string NombreCompleto
+        {
+            get { return string.IsNullOrEmpty(Opciones) ? Nombre : Nombre + " · " + Opciones; }
+        }
 
         public bool Pagada
         {
@@ -136,6 +149,9 @@ namespace RestauranteDelicias.Modelos
         public int Id { get; set; }
         public string Parte { get; set; }
         public string Forma { get; set; }
+        public string Nit { get; set; } = "CF";
+        public string NombreFactura { get; set; } = "Consumidor Final";
+        public string DireccionFactura { get; set; } = "Ciudad";
         public decimal Monto { get; set; }
         public decimal? Recibido { get; set; }
         public string Referencia { get; set; }
@@ -187,9 +203,17 @@ namespace RestauranteDelicias.Modelos
         public string Tipo { get; set; }
         public string Cliente { get; set; }
         public string Telefono { get; set; }
+        public int? NumeroLlevar { get; set; }
         public DateTime Apertura { get; set; }
         public decimal Subtotal { get; set; }
         public int Pendientes { get; set; }
         public int Listos { get; set; }
+    }
+
+    public class Cliente
+    {
+        public string Nit { get; set; }
+        public string Nombre { get; set; }
+        public string Direccion { get; set; }
     }
 }

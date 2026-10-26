@@ -77,8 +77,8 @@ namespace RestauranteDelicias.Pantallas
         {
             var u = Seleccionado();
             if (u == null) return;
-            var clave = Microsoft.VisualBasic.Interaction.InputBox("Nueva contraseña para " + u.Nombre + " (mínimo 6 caracteres)", "Cambiar contraseña", "");
-            if (clave.Length == 0) return;
+            var clave = FrmPregunta.Oculto(this, "Cambiar contraseña", "Nueva contraseña para " + u.Nombre + ", de al menos 6 caracteres.");
+            if (string.IsNullOrEmpty(clave)) return;
             var error = Seguridad.ValidarClave(clave);
             if (error != null) { MessageBox.Show(this, error, "Contraseña", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
             if (Ui.Seguro(this, () => UsuarioRepo.CambiarClave(u.Id, clave)))
@@ -92,8 +92,8 @@ namespace RestauranteDelicias.Pantallas
             string pin = null;
             if (poner)
             {
-                pin = Microsoft.VisualBasic.Interaction.InputBox("PIN para " + u.Nombre + " (de 4 a 6 números)", "Poner PIN", "");
-                if (pin.Length == 0) return;
+                pin = FrmPregunta.Oculto(this, "Poner PIN", "PIN para " + u.Nombre + ", de 4 a 6 números.");
+                if (string.IsNullOrEmpty(pin)) return;
                 var error = Seguridad.ValidarPin(pin);
                 if (error != null) { MessageBox.Show(this, error, "PIN", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
             }

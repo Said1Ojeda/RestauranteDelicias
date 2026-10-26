@@ -39,10 +39,13 @@ El sistema se va armando por fases. Cada una se puede usar sola, sin esperar a l
 - [x] Mover una orden de mesa y juntar mesas
 - [x] **Dividir la cuenta** por platillos o en partes iguales, cada parte con su pago
 - [x] Varios pagos en una cuenta (mitad efectivo, mitad tarjeta)
-- [x] Pedidos para llevar y a domicilio, con nombre, teléfono y dirección
-- [ ] Modificadores con precio: término de la carne, extra queso +Q5, sin hielo
+- [x] Pedidos para llevar con número del día y nombre para llamarlo
+- [ ] A domicilio, con dirección de entrega, repartidor y estado del envío
+- [x] Opciones por platillo: estilo de los huevos, término, extras con precio y cosas para quitar, con opciones que dependen de otra
+- [x] Datos de factura por pago: CF o NIT validado, clientes frecuentes y el límite de Q2,500 para consumidor final
+- [x] Cada cajero ve solo sus ventas
 - [ ] Combos y platillo del día
-- [ ] Configurar áreas y mesas desde el sistema
+- [x] Configurar áreas y mesas desde el sistema
 
 ## Fase 4: dejarlo lindísimo
 
